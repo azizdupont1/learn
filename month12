@@ -1,0 +1,38 @@
+import pandas as pd
+from datetime import datetime, timedelta
+
+# Exemple de DataFrame
+# df = pd.DataFrame({
+#     'client_id': [1, 1, 1, 2, 2, 2, ...],
+#     'date': ['2023-09-30', '2023-10-31', '2023-11-30', '2023-09-30', '2023-10-31', '2023-11-30', ...],
+#     'chap': ['n', 'y', 'n', 'n', 'n', 'y', ...]
+# })
+
+# Convertir la colonne 'date' en datetime
+df['date'] = pd.to_datetime(df['date'])
+
+# Créer une nouvelle colonne 'target' initialisée à 0
+df['target'] = 0
+
+# Liste des mois de référence (dernier jour du mois)
+reference_months = pd.to_datetime(['2023-09-30', '2023-10-31', '2023-11-30', '2023-12-31'])
+
+# Pour chaque mois de référence
+for month in reference_months:
+    # Filtrer les clients ayant des échéances de prêt ce mois-ci
+    clients = df[df['date'] == month]['client_id'].unique()
+    
+    # Pour chaque client
+    for client in clients:
+        # Filtrer les données du client pour les 12 mois suivants
+        start_date = month
+        end_date = month + pd.DateOffset(months=12)
+        client_data = df[(df['client_id'] == client) & (df['date'] >= start_date) & (df['date'] < end_date)]
+        
+        # Vérifier si au moins une valeur de 'chap' est 'y'
+        if 'y' in client_data['chap'].values:
+            # Mettre à jour la colonne 'target' pour le mois de référence
+            df.loc[(df['client_id'] == client) & (df['date'] == month), 'target'] = 1
+
+# Afficher le DataFrame mis à jour
+print(df)
