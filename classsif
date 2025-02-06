@@ -231,4 +231,120 @@ Les règles d'accès sont définies en fonction du rôle des utilisateurs et du 
 
 ---
 
-En suivant cette procédure, vous garantissez une gestion des données **sécurisée**, **cohérente** et **conforme** aux exigences métier et réglementaires, tout en respectant les besoins spécifiques de chaque rôle au sein du service data.
+En suivant cette procédure, vous garantissez une gestion des données **sécurisée**, **cohérente** et **conforme** aux exigences métier et réglementaires,
+tout en respectant les besoins spécifiques de chaque rôle au sein du service data.
+
+__________________________________
+Voici une procédure de classification et de gestion des données adaptée à vos besoins. Elle définit les règles de classification, d'accès, de manipulation, de stockage et de partage des données en fonction de leur niveau de confidentialité et de criticité. L'objectif est de garantir la confidentialité, l'intégrité, la disponibilité, la qualité et la cohérence des données au sein du service data.
+
+---
+
+### **Procédure de Classification et Gestion des Données**
+
+#### **1. Champ d'Application**
+Cette procédure s'applique à toutes les données utilisées, stockées, manipulées ou partagées au sein du service data, y compris :
+- Les données structurées (bases de données, fichiers CSV, etc.).
+- Les données non structurées (documents, logs, etc.).
+- Les données personnelles, sensibles, critiques ou publiques.
+
+Les acteurs concernés sont :
+- **Data Engineers** : Accès aux données sensibles et personnelles en clair.
+- **Data Scientists et Analystes** : Accès aux données anonymisées ou agrégées.
+- **Développeurs Front-End** : Accès aux données anonymisées ou agrégées.
+
+---
+
+#### **2. Classification des Données**
+Les données sont classées en quatre niveaux de confidentialité et de criticité :
+
+- **C0 : Données Publiques**  
+  - Exemples : Données ouvertes, informations non sensibles.
+  - Accès : Accessibles à tous les collaborateurs et externes.
+  - Stockage : Stockage standard, pas de chiffrement requis.
+  - Partage : Partage autorisé sans restriction.
+
+- **C1 : Données à Usage Interne**  
+  - Exemples : Données métiers non critiques, documents internes.
+  - Accès : Réservé aux collaborateurs internes.
+  - Stockage : Stockage sécurisé, chiffrement recommandé.
+  - Partage : Partage interne uniquement, avec accord du responsable data.
+
+- **C2 : Données Confidentielles**  
+  - Exemples : Données métiers critiques, informations stratégiques.
+  - Accès : Restreint aux équipes autorisées (Data Engineers, responsables data).
+  - Stockage : Stockage hautement sécurisé, chiffrement obligatoire.
+  - Partage : Partage interne strictement contrôlé, avec accord du responsable data.
+
+- **C3 : Données Sensibles**  
+  - Exemples : Données personnelles, informations médicales, données financières.
+  - Accès : Réservé aux Data Engineers et responsables data.
+  - Stockage : Stockage hautement sécurisé avec chiffrement fort.
+  - Partage : Partage interdit sans autorisation explicite du responsable data.
+
+---
+
+#### **3. Règles d'Accès**
+- **Data Engineers** : Accès complet aux données en clair (C0 à C3) pour la gestion technique.
+- **Data Scientists et Analystes** : Accès aux données anonymisées ou agrégées (C0 à C2).
+- **Développeurs Front-End** : Accès aux données anonymisées ou agrégées (C0 à C2).
+- **Externes** : Accès uniquement aux données publiques (C0).
+
+---
+
+#### **4. Manipulation des Données**
+- **Anonymisation** : Les données sensibles (C3) doivent être anonymisées avant d'être partagées avec les Data Scientists, Analystes et Développeurs Front-End.
+- **Chiffrement** : Les données confidentielles (C2) et sensibles (C3) doivent être chiffrées pendant le stockage et le transfert.
+- **Audit** : Toutes les manipulations de données doivent être tracées et auditées.
+
+---
+
+#### **5. Stockage des Données**
+- **C0** : Stockage standard, sans restriction.
+- **C1** : Stockage sécurisé avec accès contrôlé.
+- **C2** : Stockage hautement sécurisé avec chiffrement.
+- **C3** : Stockage hautement sécurisé avec chiffrement fort et accès restreint.
+
+---
+
+#### **6. Partage des Données**
+- **C0** : Partage autorisé sans restriction.
+- **C1** : Partage interne avec accord du responsable data.
+- **C2** : Partage interne strictement contrôlé.
+- **C3** : Partage interdit sans autorisation explicite.
+
+---
+
+#### **7. Contrôle et Audit**
+- **Contrôle d'Accès** : Mise en place de mécanismes de contrôle d'accès (IAM, RBAC).
+- **Audit** : Journalisation des accès et des manipulations de données.
+- **Revue Régulière** : Revue annuelle des classifications et des accès.
+
+---
+
+#### **8. Responsabilités**
+- **Responsable Data** : Garant de la classification, de l'accès et du respect des règles.
+- **Data Engineers** : Gestion technique des données, anonymisation et chiffrement.
+- **Data Scientists et Analystes** : Utilisation des données anonymisées ou agrégées.
+- **Développeurs Front-End** : Utilisation des données anonymisées ou agrégées.
+
+---
+
+#### **9. Formation et Sensibilisation**
+- Tous les collaborateurs doivent être formés sur les règles de classification et de gestion des données.
+- Une sensibilisation régulière doit être organisée pour garantir le respect des procédures.
+
+---
+
+#### **10. Sanctions**
+- Tout manquement aux règles de classification et de gestion des données entraînera des sanctions disciplinaires, conformément à la politique interne de l'entreprise.
+
+---
+
+### **Annexes**
+- **Glossaire** : Définitions des termes techniques utilisés.
+- **Exemples de Données** : Exemples concrets de données pour chaque niveau de classification.
+- **Modèles de Documents** : Modèles pour les demandes d'accès, les audits, etc.
+
+---
+
+Cette procédure garantit une gestion rigoureuse des données, en respectant les principes de confidentialité, d'intégrité, de disponibilité, de qualité et de cohérence. Elle est évolutive et doit être adaptée en fonction des besoins et des réglementations en vigueur.
