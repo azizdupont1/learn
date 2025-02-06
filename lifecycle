@@ -75,3 +75,101 @@ Une fois la cartographie réalisée, analysez-la pour identifier :
 - **Analyse des risques** : RiskWatch, LogicManager.
 
 En suivant ces étapes, vous pourrez créer une cartographie claire et utile du cycle de vie des données pour votre entreprise.
+
+---------------------------
+
+Voici un exemple concret de cycle de vie des données pour une **Direction Data** dans le cadre que vous avez décrit. Cet exemple détaille chaque étape du cycle de vie des données, en intégrant les processus, les acteurs et les outils impliqués.
+
+---
+
+### **Exemple de cycle de vie des données**
+
+#### 1. **Création/Collecte des données**
+   - **Source des données** : Les données sont extraites de différentes sources :
+     - **Bases de données internes** (SQL Server, Oracle, etc.).
+     - **Fichiers métiers** (Excel, CSV, JSON, etc.).
+     - **Applications métier** (CRM, ERP, etc.).
+   - **Acteurs** : Data Engineers, Systèmes ETL (Extract, Transform, Load).
+   - **Outils** : Apache NiFi, Talend, Informatica, scripts Python.
+
+---
+
+#### 2. **Stockage des données brutes**
+   - Les données brutes sont stockées dans des **dossiers sécurisés** ou des **lacs de données (Data Lake)**.
+   - **Accès restreint** : Seuls les **Data Engineers** ont accès à ces données pour garantir leur intégrité et sécurité.
+   - **Sécurité** : Chiffrement des données, contrôle d'accès (IAM), sauvegardes régulières.
+   - **Outils** : AWS S3, Azure Data Lake, Hadoop HDFS.
+
+---
+
+#### 3. **Traitement et anonymisation**
+   - Les données brutes sont nettoyées, transformées et **anonymisées** si nécessaire (pour respecter le RGPD ou d'autres réglementations).
+   - **Acteurs** : Data Engineers, Data Scientists.
+   - **Tâches** :
+     - Nettoyage des données (suppression des doublons, correction des erreurs).
+     - Anonymisation (masquage des données personnelles).
+     - Structuration des données pour analyse.
+   - **Outils** : Python (Pandas, NumPy), Apache Spark, Talend.
+
+---
+
+#### 4. **Partage des données non sensibles**
+   - Les données traitées et non sensibles sont partagées avec :
+     - **Data Analysts** pour créer des rapports et des tableaux de bord.
+     - **Data Scientists** pour développer des modèles prédictifs.
+     - **Métiers** pour alimenter des applications ou des processus décisionnels.
+   - **Accès** : Contrôlé par des rôles et permissions (ex : accès en lecture seule pour les analystes).
+   - **Outils** : API REST, SFTP, plateformes de partage sécurisées.
+
+---
+
+#### 5. **Utilisation des données**
+   - Les données sont utilisées de plusieurs manières :
+     - **API** : Les données sont consommées par des applications front-end (sites web, applications mobiles).
+     - **Tableaux de bord** : Les Data Analysts créent des visualisations dans Power BI ou Tableau.
+     - **Analyse avancée** : Les Data Scientists utilisent les données pour entraîner des modèles de Machine Learning.
+   - **Acteurs** : Développeurs front-end, Data Analysts, Data Scientists, Métiers.
+   - **Outils** : Power BI, Tableau, Flask (pour les API), React (front-end).
+
+---
+
+#### 6. **Stockage des données traitées**
+   - Les données traitées sont stockées dans des bases de données pour une utilisation future :
+     - **PostgreSQL** pour les données structurées.
+     - **Neo4j** pour les données relationnelles ou graphiques.
+   - **Acteurs** : Data Engineers, Administrateurs de bases de données.
+   - **Sécurité** : Chiffrement, sauvegardes, contrôle d'accès.
+
+---
+
+#### 7. **Partage des informations avec les métiers**
+   - Les informations sont partagées avec les métiers via :
+     - **Applications web** : Tableaux de bord interactifs.
+     - **Fichiers** : Export en format Excel, CSV ou PLAT.
+     - **Power BI** : Rapports et visualisations partagés.
+   - **Acteurs** : Métiers, Data Analysts.
+   - **Outils** : Power BI, Tableau, applications web personnalisées.
+
+---
+
+#### 8. **Destruction des données brutes**
+   - Les données brutes sont détruites après une période définie (par exemple, 1 an) pour respecter les politiques de rétention et les réglementations.
+   - **Méthode de destruction** : Suppression sécurisée (effacement définitif).
+   - **Acteurs** : Data Engineers, Responsables de la conformité.
+   - **Outils** : Logiciels de suppression sécurisée (ex : Blancco).
+
+---
+
+### **Résumé visuel du cycle de vie des données**
+1. **Collecte** → 2. **Stockage brut** → 3. **Traitement et anonymisation** → 4. **Partage des données non sensibles** → 5. **Utilisation (API, Power BI)** → 6. **Stockage des données traitées** → 7. **Partage avec les métiers** → 8. **Destruction des données brutes**.
+
+---
+
+### **Points clés à surveiller**
+- **Sécurité** : Assurez-vous que les données sont protégées à chaque étape (chiffrement, contrôle d'accès).
+- **Conformité** : Respectez les réglementations (RGPD, CCPA) pour l'anonymisation et la destruction des données.
+- **Traçabilité** : Documentez chaque étape pour garantir la transparence et la responsabilité.
+
+---
+
+Cet exemple illustre comment une Direction Data peut gérer efficacement le cycle de vie des données tout en maximisant leur valeur et en respectant les contraintes réglementaires et de sécurité.
