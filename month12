@@ -36,3 +36,72 @@ for month in reference_months:
 
 # Afficher le DataFrame mis à jour
 print(df)
+
+___________________________________
+
+import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
+
+# Exemple de DataFrame
+df = pd.DataFrame({
+    'client_id': [1, 1, 1, 2, 2, 2],
+    'date': ['2023-09-30', '2023-10-31', '2023-12-31', '2023-09-30', '2023-11-30', '2023-12-31'],
+    'chap': ['n', 'y', 'n', 'n', 'y', 'n']
+})
+
+# Convertir la colonne 'date' en datetime
+df['date'] = pd.to_datetime(df['date'])
+
+# Générer toutes les dates possibles pour chaque client
+all_dates = pd.date_range(start=df['date'].min(), end=df['date'].max(), freq='M')
+all_clients = df['client_id'].unique()
+
+# Créer un DataFrame complet avec toutes les combinaisons client-date
+full_df = pd.DataFrame([(client, date) for client in all_clients for date in all_dates],
+                       columns=['client_id', 'date'])
+
+# Fusionner avec le DataFrame original pour compléter les données manquantes
+df_complete = pd.merge(full_df, df, on=['client_id', 'date'], how='left')
+
+# Remplir les valeurs manquantes de 'chap' avec 't' (ou une autre valeur par défaut)
+df_complete['chap'] = df_complete['chap'].fillna('t')
+
+# Afficher le DataFrame complété
+print("DataFrame complété :")
+print(df_complete)
+
+# Créer une nouvelle colonne 'target' initialisée à NaN
+df_complete['target'] = np.nan
+
+# Liste des mois de référence (dernier jour du mois)
+reference_months = pd.to_datetime(['2023-09-30', '2023-10-31', '2023-11-30', '2023-12-31'])
+
+# Pour chaque mois de référence
+for month in reference_months:
+    # Filtrer les clients ayant des échéances de prêt ce mois-ci
+    clients = df_complete[df_complete['date'] == month]['client_id'].unique()
+    
+    # Pour chaque client
+    for client in clients:
+        # Filtrer les données du client pour les 12 mois suivants
+        start_date = month
+        end_date = month + pd.DateOffset(months=12)
+        client_data = df_complete[(df_complete['client_id'] == client) & 
+                                  (df_complete['date'] >= start_date) & 
+                                  (df_complete['date'] < end_date)]
+        
+        # Vérifier si les données des 12 mois suivants existent
+        if len(client_data) == 12:  # Il y a bien 12 mois de données
+            # Vérifier si au moins une valeur de 'chap' est 'y'
+            if 'y' in client_data['chap'].values:
+                df_complete.loc[(df_complete['client_id'] == client) & (df_complete['date'] == month), 'target'] = 1
+            else:
+                df_complete.loc[(df_complete['client_id'] == client) & (df_complete['date'] == month), 'target'] = 0
+        else:
+            # Si les données des 12 mois suivants sont manquantes, attribuer NaN
+            df_complete.loc[(df_complete['client_id'] == client) & (df_complete['date'] == month), 'target'] = np.nan
+
+# Afficher le DataFrame final avec la colonne 'target'
+print("\nDataFrame final avec 'target' :")
+print(df_complete)
