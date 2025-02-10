@@ -1,0 +1,41 @@
+import pandas as pd
+from pandas.tseries.offsets import MonthEnd
+
+# Exemple de données
+data = {
+    'client_id': [1, 1, 1, 1, 2, 2, 2, 2],
+    'date_fin_mois': ['2023-09-30', '2023-10-31', '2023-11-30', '2023-12-31', 
+                      '2023-09-30', '2023-10-31', '2023-11-30', '2023-12-31'],
+    'chap': ['n', 'y', 'n', 'n', 'n', 'n', 'y', 'n']
+}
+
+# Créer le DataFrame
+df = pd.DataFrame(data)
+
+# Convertir 'date_fin_mois' en datetime
+df['date_fin_mois'] = pd.to_datetime(df['date_fin_mois'])
+
+# Initialiser la colonne 'target' à 0
+df['target'] = 0
+
+# Fonction pour calculer la colonne 'target'
+def calculate_target(row, df):
+    client_id = row['client_id']
+    current_date = row['date_fin_mois']
+    
+    # Filtrer les 12 mois suivants (y compris le mois actuel)
+    future_dates = df[(df['client_id'] == client_id) & 
+                      (df['date_fin_mois'] >= current_date) & 
+                      (df['date_fin_mois'] <= current_date + MonthEnd(11))]
+    
+    # Vérifier si au moins un 'chap' est 'y'
+    if 'y' in future_dates['chap'].values:
+        return 1
+    else:
+        return 0
+
+# Appliquer la fonction pour calculer 'target'
+df['target'] = df.apply(lambda row: calculate_target(row, df), axis=1)
+
+# Afficher le résultat
+print(df)
