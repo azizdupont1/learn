@@ -1,0 +1,59 @@
+Voici une représentation graphique simplifiée des interactions et des feedbacks entre les différents rôles : **Data Engineer**, **Data Scientist**, **Développeur Front-End** et **Product Owner**.
+
+```
++-------------------+
+|  Product Owner    |
+|  (Vision, besoins |
+|   métier, priorités)|
++--------+----------+
+         |
+         | Feedbacks (exigences, retours utilisateurs)
+         v
++-------------------+       +-------------------+
+|  Data Engineer    | <---> |  Data Scientist   |
+|  (Infrastructures |       |  (Analyses,       |
+|   de données,      |       |   modèles, insights)|
+|   pipelines)       |       |                   |
++--------+----------+       +--------+----------+
+         |                            |
+         | Feedbacks (données, APIs)  | Feedbacks (résultats, besoins)
+         v                            v
++-------------------+       +-------------------+
+| Développeur        | <---> |  Data Scientist   |
+| Front-End          |       |  (Visualisation   |
+| (UI/UX, interfaces)|       |   des résultats)  |
++-------------------+       +-------------------+
+         |
+         | Feedbacks (intégration, UX)
+         v
++-------------------+
+|  Utilisateurs     |
+|  (Retours finaux) |
++-------------------+
+```
+
+---
+
+### Explication du graphique :
+1. **Product Owner** :
+   - Centralise les besoins métier et les retours utilisateurs.
+   - Transmet les exigences aux autres rôles (Data Engineer, Data Scientist, Développeur Front-End).
+
+2. **Data Engineer** :
+   - Reçoit des exigences du Product Owner et des demandes de données du Data Scientist.
+   - Fournit des infrastructures de données et des APIs au Développeur Front-End.
+
+3. **Data Scientist** :
+   - Collabore avec le Data Engineer pour accéder aux données.
+   - Fournit des analyses et des modèles au Product Owner et au Développeur Front-End.
+
+4. **Développeur Front-End** :
+   - Intègre les données et les résultats des modèles dans l'interface utilisateur.
+   - Reçoit des feedbacks du Product Owner et des utilisateurs pour améliorer l'UX/UI.
+
+5. **Utilisateurs** :
+   - Fournissent des retours finaux au Product Owner, bouclant ainsi la boucle de feedback.
+
+---
+
+Ce graphique montre comment les feedbacks circulent entre les différents rôles pour assurer une collaboration efficace et un produit final aligné avec les besoins des utilisateurs.
