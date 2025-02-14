@@ -1,3 +1,28 @@
+__init__.py
+from .anonymization import (
+    anonymize_dataframe,
+    get_deanonymization_function,
+)
+
+____________________________ setup.py
+
+from setuptools import setup, find_packages
+
+setup(
+    name="anonymization_module",
+    version="0.1",
+    packages=find_packages(),
+    install_requires=[
+        "cryptography",
+        "pandas",
+        "python-dotenv",
+    ],
+)
+________________________
+cd /project/secure_folder
+pip install -e .
+
+______________________________
 import os
 import json
 import pandas as pd
@@ -6,22 +31,14 @@ import hmac
 import hashlib
 from dotenv import load_dotenv, set_key, dotenv_values
 from pathlib import Path
+import importlib.resources as pkg_resources
+import anonymization_module  # Import du package
 
-# Déterminer le répertoire de base
-if "__file__" in globals():
-    # Cas d'un fichier .py : utiliser __file__
-    base_dir = Path(__file__).resolve().parent  # Remonter d'un niveau
-else:
-    # Cas de Jupyter Notebook : utiliser le répertoire de travail actuel
-    base_dir = Path(os.getcwd())  # Utiliser le répertoire courant
+# Déterminer le chemin du fichier .env et du fichier de correspondance
+env_file = Path(pkg_resources.files(anonymization_module) / ".env")
+mapping_file = Path(pkg_resources.files(anonymization_module) / "mapping_tables_encrypted.json")
 
-# Chemin absolu vers le fichier .env
-env_file = base_dir.parent / ".env"
-
-# Chemin absolu vers le fichier de correspondance chiffré
-mapping_file = base_dir / "mapping_tables_encrypted.json"
-
-# Vérifier si le fichier .env existe
+# Vérifier et créer le fichier .env si nécessaire
 if not os.path.exists(env_file):
     # Créer un fichier .env vide
     with open(env_file, "w") as f:
@@ -47,154 +64,69 @@ if "FERNET_KEY" not in env_vars or "HMAC_KEY" not in env_vars:
 else:
     print("Les clés existent déjà dans .env.")
 
-# Charger les variables d'environnement
+# Charger les clés depuis .env
 load_dotenv(env_file)
+fernet_key = os.getenv("FERNET_KEY").encode()
+hmac_key = bytes.fromhex(os.getenv("HMAC_KEY"))
 
-# Récupérer les clés
-fernet_key = os.getenv("FERNET_KEY").encode()  # Convertir en bytes pour Fernet
-hmac_key = bytes.fromhex(os.getenv("HMAC_KEY"))  # Convertir en bytes pour HMAC
-
-# Initialiser Fernet avec la clé
+# Initialiser Fernet
 cipher_suite = Fernet(fernet_key)
 
-# Fonction pour chiffrer un champ avec Fernet
 def encrypt_symmetric(data):
     return cipher_suite.encrypt(data.encode()).decode()
 
-# Fonction pour déchiffrer un champ avec Fernet
 def decrypt_symmetric(data):
     return cipher_suite.decrypt(data.encode()).decode()
 
-# Fonction pour hacher un champ avec HMAC
 def anonymize_hash(data):
-    # Convertir la donnée en chaîne de caractères
-    data_str = str(data)
-    # Hacher la chaîne de caractères
-    hmac_hash = hmac.new(hmac_key, data_str.encode(), hashlib.sha256)
-    return hmac_hash.hexdigest()[:10]  # Retourne les 10 premiers caractères du hachage
+    return hmac.new(hmac_key, data.encode(), hashlib.sha256).hexdigest()[:10]
 
-# Fonction pour anonymiser un DataFrame
-def anonymize_dataframe(df, columns_to_hash, columns_to_encrypt):
-    """
-    Anonymise un DataFrame en hachant et chiffrant les colonnes spécifiées.
+def anonymize_dataframe(df):
+    required_columns = ["nc", "id_cl", "nom_cl", "code_ag", "nom_ag"]
+    if not all(col in df.columns for col in required_columns):
+        raise ValueError(f"Le DataFrame doit contenir : {required_columns}")
 
-    Args:
-        df (pd.DataFrame): Le DataFrame à anonymiser.
-        columns_to_hash (list): Liste des colonnes à hacher.
-        columns_to_encrypt (list): Liste des colonnes à chiffrer.
-
-    Returns:
-        pd.DataFrame: Le DataFrame anonymisé.
-    """
-    # Vérifier les colonnes nécessaires
-    required_columns = columns_to_hash + columns_to_encrypt
-    if not all(column in df.columns for column in required_columns):
-        raise ValueError(f"Le DataFrame doit contenir les colonnes suivantes : {required_columns}")
-
-    # Créer des tables de correspondance pour les colonnes hachées
-    mapping_tables = {column: {} for column in columns_to_hash}
-
-    # Anonymisation des données
+    mapping_tables = {"nc": {}, "id_cl": {}, "code_ag": {}}
     df_anonymized = df.copy()
 
-    # Hacher les colonnes spécifiées
-    for column in columns_to_hash:
-        df_anonymized[column] = df[column].apply(lambda x: mapping_tables[column].setdefault(x, anonymize_hash(x)))
+    for col in ["nc", "id_cl", "code_ag"]:
+        df_anonymized[col] = df[col].apply(lambda x: mapping_tables[col].setdefault(x, anonymize_hash(x)))
 
-    # Chiffrer les colonnes spécifiées
-    for column in columns_to_encrypt:
-        df_anonymized[column] = df[column].apply(encrypt_symmetric)
+    df_anonymized["nom_cl"] = df["nom_cl"].apply(encrypt_symmetric)
+    df_anonymized["nom_ag"] = df["nom_ag"].apply(encrypt_symmetric)
 
-    # Sauvegarder les tables de correspondance dans un fichier chiffré
     try:
         with open(mapping_file, "wb") as f:
             encrypted_mapping = cipher_suite.encrypt(json.dumps(mapping_tables).encode())
             f.write(encrypted_mapping)
-        print("Fichier de correspondance chiffré sauvegardé avec succès.")
+        print("Fichier de correspondance chiffré sauvegardé.")
     except Exception as e:
-        print(f"Erreur lors de la sauvegarde du fichier de correspondance : {e}")
+        print(f"Erreur de sauvegarde : {e}")
         raise
-
+    
     return df_anonymized
 
-______________________________________________________________________________________________
-
-# Exemple de DataFrame
-data = {
-    "nc": [101, 102, 103],  # Colonne avec des entiers
-    "id_cl": [1, 2, 3],      # Colonne avec des entiers
-    "nom_cl": ["Alice", "Bob", "Charlie"],  # Colonne avec des chaînes
-    "code_ag": ["AG1", "AG2", "AG3"],       # Colonne avec des chaînes
-    "nom_ag": ["Agence A", "Agence B", "Agence C"]  # Colonne avec des chaînes
-}
-df = pd.DataFrame(data)
-
-# Colonnes à hacher et à chiffrer
-columns_to_hash = ["nc", "id_cl", "code_ag"]  # Colonnes à hacher
-columns_to_encrypt = ["nom_cl", "nom_ag"]     # Colonnes à chiffrer
-
-# Anonymiser le DataFrame
-df_anonymized = anonymize_dataframe(df, columns_to_hash, columns_to_encrypt)
-
-# Afficher le DataFrame anonymisé
-df_anonymized
-____________________________________________________________________________________________
-
-def get_deanonymization_function(columns_to_decrypt, columns_to_dehash):
-    """
-    Retourne une fonction de désanonymisation paramétrable.
-
-    Args:
-        columns_to_decrypt (list): Liste des colonnes à déchiffrer.
-        columns_to_dehash (list): Liste des colonnes à désanonymiser (hachées).
-
-    Returns:
-        function: Une fonction pour désanonymiser un DataFrame.
-    """
-    # Charger et déchiffrer les tables de correspondance
+def get_deanonymization_function():
     try:
         with open(mapping_file, "rb") as f:
-            encrypted_mapping = f.read()
-            decrypted_mapping = cipher_suite.decrypt(encrypted_mapping).decode()
+            decrypted_mapping = cipher_suite.decrypt(f.read()).decode()
             mapping_tables = json.loads(decrypted_mapping)
-        print("Fichier de correspondance chargé et déchiffré avec succès.")
+        print("Fichier de correspondance chargé et déchiffré.")
     except Exception as e:
-        print(f"Erreur lors du chargement ou du déchiffrement du fichier de correspondance : {e}")
+        print(f"Erreur de chargement : {e}")
         raise
 
-    # Fonction interne pour désanonymiser un DataFrame
     def deanonymize_dataframe(df_anonymized):
         df_deanonymized = df_anonymized.copy()
-
-        # Déchiffrer les colonnes spécifiées
-        for column in columns_to_decrypt:
-            if column in df_anonymized.columns:
-                df_deanonymized[column] = df_anonymized[column].apply(decrypt_symmetric)
-            else:
-                print(f"Avertissement : La colonne '{column}' n'existe pas dans le DataFrame.")
-
-        # Désanonymiser les colonnes spécifiées (hachées)
-        for column in columns_to_dehash:
-            if column in mapping_tables and column in df_anonymized.columns:
-                reverse_mapping_table = {v: k for k, v in mapping_tables[column].items()}
-                df_deanonymized[column] = df_anonymized[column].map(reverse_mapping_table)
-            else:
-                print(f"Avertissement : La colonne '{column}' n'existe pas dans la table de correspondance ou dans le DataFrame.")
-
+        df_deanonymized["nom_cl"] = df_anonymized["nom_cl"].apply(decrypt_symmetric)
+        df_deanonymized["nom_ag"] = df_anonymized["nom_ag"].apply(decrypt_symmetric)
+        for col in ["nc", "id_cl", "code_ag"]:
+            reverse_mapping = {v: k for k, v in mapping_tables[col].items()}
+            df_deanonymized[col] = df_anonymized[col].map(reverse_mapping)
         return df_deanonymized
 
     return deanonymize_dataframe
 
-_______________________________
-
-# Colonnes à déchiffrer et à désanonymiser
-columns_to_decrypt = ["nom_cl", "nom_ag"]
-columns_to_dehash = ["nc", "id_cl", "code_ag"]
-
-# Obtenir la fonction de désanonymisation
-deanonymize_dataframe = get_deanonymization_function(columns_to_decrypt, columns_to_dehash)
-
-# Désanonymiser le DataFrame
-df_deanonymized = deanonymize_dataframe(df_anonymized)
-
-df_deanonymized
+_______________________ applicable 
+import pandas as pd
+from anonymization_module import anonymize_dataframe, get_deanonymization_function
