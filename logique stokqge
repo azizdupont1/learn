@@ -1,0 +1,64 @@
+ ******logique de stockage sécurisé des informations sensibles
+
+1. Utiliser des variables d'environnement
+
+11. Utiliser le Registre Windows
+Le Registre Windows peut être utilisé pour stocker des informations sensibles 
+de manière sécurisée.
+a. Ajouter les clés au Registre
+Ouvrez l'Éditeur du Registre (regedit).
+Naviguez vers HKEY_LOCAL_MACHINE\SOFTWARE\VotreApplication.
+Créez de nouvelles valeurs de chaîne (REG_SZ) pour FERNET_KEY et HMAC_KEY
+
+2. Utiliser un gestionnaire de secrets
+Exemples de gestionnaires de secrets
+AWS Secrets Manager : Pour les applications déployées sur AWS.
+Azure Key Vault : Pour les applications déployées sur Azure.
+HashiCorp Vault : Une solution open-source pour gérer les secrets.
+Google Cloud Secret Manager : Pour les applications déployées sur Google Cloud.
+
+
+3. Stocker les fichiers .env dans un emplacement sécurisé
+a. Sur un serveur local tockez les fichiers :
+	dans un répertoire sécurisé avec des permissions restrictives
+	chmod 600 /chemin/vers/.env
+	chmod 600 /chemin/vers/mapping_tables_encrypted.json
+
+
+b. Sur un serveur distant
+	Utilisez un serveur de fichiers sécurisé (par exemple, SFTP ou S3) 
+	pour stocker les fichiers.
+	Accédez aux fichiers via une connexion sécurisée (SSH, HTTPS
+
+c. Dans un conteneur Docker
+	Montez les fichiers sensibles en tant que volumes dans le conteneur. 
+	Par exemple, dans un fichier docker-compose.yml 
+
+
+4. Utiliser un service de configuration centralisé
+Les services de configuration centralisés (comme Consul ou etcd) permettent de stocker et de gérer des configurations et des secrets de manière sécurisée.
+
+a. Exemple avec Consul
+Stockez les clés dans Consul.
+Accédez aux clés via une API sécurisée
+
+
+5. Chiffrer les fichiers sensibles
+	Si vous devez inclure les fichiers sensibles dans votre déploiement, 
+	chiffrez-les et déchiffrez-les au runtime.
+
+a. Chiffrement manuel
+Utilisez des outils comme gpg pour chiffrer les fichiers
+Déchiffrez-les au runtime dans votre code :
+
+6. Obfuscateur comme PyArmor peut ajouter une couche de protection à votre code, 
+	mais ce n'est pas une solution infaillible. Pour protéger les informations 
+	sensibles comme les clés de chiffrement :
+
+	Ne codez pas les clés en dur dans le code.
+
+	Utilisez des variables d'environnement, des fichiers de configuration 
+	sécurisés ou un gestionnaire de secrets.
+
+	Combinez l'obfuscation avec d'autres mesures de sécurité pour une protection
+	 optimale.
