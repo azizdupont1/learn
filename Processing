@@ -1,0 +1,186 @@
+Voici le script mis à jour avec les modifications demandées, en 
+```python
+import psycopg2
+from psycopg2 import sql
+import os
+from cryptography.fernet import Fernet
+from dotenv import load_dotenv
+
+# Charger les variables d'environnement
+load_dotenv()
+
+# Connexion à PostgreSQL
+DB_PARAMS = {
+    "dbname": os.getenv("DB_NAME"),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "host": os.getenv("DB_HOST"),
+    "port": os.getenv("DB_PORT"),
+}
+
+def create_db_and_table():
+    conn = psycopg2.connect(**DB_PARAMS)
+    cursor = conn.cursor()
+
+    # Création de la table pour stocker les clés chiffrées
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS encryption_keys (
+            id SERIAL PRIMARY KEY,
+            key_name TEXT UNIQUE NOT NULL,
+            encrypted_key BYTEA NOT NULL
+        )
+    """)
+    conn.commit()
+    cursor.close()
+    conn.close()
+    print("Table encryption_keys créée.")
+
+create_db_and_table()
+```
+
+---
+
+```python
+from cryptography.fernet import Fernet
+from base64 import b64encode, b64decode
+import psycopg2
+
+# Générer une clé de chiffrement principale (à stocker ailleurs de manière sécurisée)
+MASTER_KEY = Fernet.generate_key()
+cipher_master = Fernet(MASTER_KEY)  
+
+def store_encryption_keys():
+    conn = psycopg2.connect(**DB_PARAMS)
+    cursor = conn.cursor()
+
+    # Générer les clés de chiffrement et de hachage
+    fernet_key = Fernet.generate_key()  
+    hmac_key = os.urandom(32)
+
+    # Chiffrer les clés avant stockage
+    encrypted_fernet_key = cipher_master.encrypt(fernet_key)
+    encrypted_hmac_key = cipher_master.encrypt(hmac_key)
+
+    # Insérer les clés chiffrées dans la BD
+    cursor.execute("INSERT INTO encryption_keys (key_name, encrypted_key) VALUES (%s, %s) ON CONFLICT (key_name) DO NOTHING", 
+                   ("FERNET_KEY", encrypted_fernet_key))
+    cursor.execute("INSERT INTO encryption_keys (key_name, encrypted_key) VALUES (%s, %s) ON CONFLICT (key_name) DO NOTHING", 
+                   ("HMAC_KEY", encrypted_hmac_key))
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+    print("Clés stockées dans la BD.")
+
+store_encryption_keys()
+```
+
+---
+
+```python
+def retrieve_encryption_keys():
+    """Récupère les clés de manière sécurisée et encapsulée (sans accès direct aux valeurs en clair)."""
+    conn = psycopg2.connect(**DB_PARAMS)
+    cursor = conn.cursor()
+
+    # Récupérer les clés chiffrées
+    cursor.execute("SELECT key_name, encrypted_key FROM encryption_keys")
+    key_data = {row[0]: row[1] for row in cursor.fetchall()}
+
+    cursor.close()
+    conn.close()
+
+    if "FERNET_KEY" not in key_data or "HMAC_KEY" not in key_data:
+        raise ValueError("Les clés ne sont pas disponibles dans la base de données.")
+
+    # Déchiffrer les clés avec la MASTER_KEY
+    fernet_key = cipher_master.decrypt(key_data["FERNET_KEY"])
+    hmac_key = cipher_master.decrypt(key_data["HMAC_KEY"])
+
+    return fernet_key, hmac_key
+```
+
+---
+
+```python
+import pandas as pd
+import hmac
+import hashlib
+
+# Initialisation des clés
+fernet_key, hmac_key = retrieve_encryption_keys()
+cipher_suite = Fernet(fernet_key)
+
+def encrypt_symmetric(data):
+    """Chiffre une valeur avec Fernet."""
+    return cipher_suite.encrypt(data.encode()).decode()
+
+def decrypt_symmetric(data):
+    """Déchiffre une valeur avec Fernet."""
+    return cipher_suite.decrypt(data.encode()).decode()
+
+def anonymize_hash(data):
+    """Hache une valeur avec HMAC et tronque à 10 caractères."""
+    hmac_hash = hmac.new(hmac_key, data.encode(), hashlib.sha256)
+    return hmac_hash.hexdigest()[:10]
+
+def anonymize_dataframe(df):
+    """Anonymise un DataFrame en chiffrant et hachant certaines colonnes."""
+    required_columns = ["nc", "id_etu", "nom_etu", "code_eta", "nom_eta"]
+    if not all(col in df.columns for col in required_columns):
+        raise ValueError(f"Le DataFrame doit contenir les colonnes {required_columns}")
+
+    df_anonymized = df.copy()
+    
+    # Hachage des colonnes sensibles
+    df_anonymized["nc"] = df["nc"].apply(anonymize_hash)
+    df_anonymized["id_etu"] = df["id_etu"].apply(anonymize_hash)
+    df_anonymized["code_eta"] = df["code_eta"].apply(anonymize_hash)
+
+    # Chiffrement des noms
+    df_anonymized["nom_etu"] = df["nom_etu"].apply(encrypt_symmetric)
+    df_anonymized["nom_eta"] = df["nom_eta"].apply(encrypt_symmetric)
+
+    return df_anonymized
+
+def deanonymize_dataframe(df_anonymized):
+    """Désanonymise un DataFrame en déchiffrant les colonnes nécessaires."""
+    df_deanonymized = df_anonymized.copy()
+
+    df_deanonymized["nom_etu"] = df_anonymized["nom_etu"].apply(decrypt_symmetric)
+    df_deanonymized["nom_eta"] = df_anonymized["nom_eta"].apply(decrypt_symmetric)
+
+    return df_deanonymized
+```
+
+---
+
+```python
+# Création d'un DataFrame de test
+df = pd.DataFrame({
+    "nc": ["12345", "67890"],
+    "id_etu": ["ABC123", "XYZ789"],
+    "nom_etu": ["Jean Dupont", "Alice Martin"],
+    "code_eta": ["001", "002"],
+    "nom_eta": ["Agence Paris", "Agence Lyon"]
+})
+
+print("📌 DataFrame original:")
+print(df)
+
+df_anonymized = anonymize_dataframe(df)
+print("\n🔒 DataFrame anonymisé:")
+print(df_anonymized)
+
+df_deanonymized = deanonymize_dataframe(df_anonymized)
+print("\n🔓 DataFrame désanonymisé:")
+print(df_deanonymized)
+```
+
+---
+
+### 🔹 Modifications :
+- **Changement de `cl` en `etu`** pour les colonnes relatives aux étudiants (`id_cl`, `nom_cl`, `id_etu`, `nom_etu`).
+- **Changement de `ag` en `eta`** pour les colonnes relatives aux agences (`code_ag`, `nom_ag`, `code_eta`, `nom_eta`).
+
+Cela répond à vos attentes. Si vous avez d'autres ajustements à faire, n'hésitez pas à me le faire savoir !
