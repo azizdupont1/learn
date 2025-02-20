@@ -1,186 +1,324 @@
-Voici le script mis à jour avec les modifications demandées, en 
-```python
-import psycopg2
-from psycopg2 import sql
 import os
-from cryptography.fernet import Fernet
-from dotenv import load_dotenv
-
-# Charger les variables d'environnement
-load_dotenv()
-
-# Connexion à PostgreSQL
-DB_PARAMS = {
-    "dbname": os.getenv("DB_NAME"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-    "host": os.getenv("DB_HOST"),
-    "port": os.getenv("DB_PORT"),
-}
-
-def create_db_and_table():
-    conn = psycopg2.connect(**DB_PARAMS)
-    cursor = conn.cursor()
-
-    # Création de la table pour stocker les clés chiffrées
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS encryption_keys (
-            id SERIAL PRIMARY KEY,
-            key_name TEXT UNIQUE NOT NULL,
-            encrypted_key BYTEA NOT NULL
-        )
-    """)
-    conn.commit()
-    cursor.close()
-    conn.close()
-    print("Table encryption_keys créée.")
-
-create_db_and_table()
-```
-
----
-
-```python
-from cryptography.fernet import Fernet
-from base64 import b64encode, b64decode
 import psycopg2
-
-# Générer une clé de chiffrement principale (à stocker ailleurs de manière sécurisée)
-MASTER_KEY = Fernet.generate_key()
-cipher_master = Fernet(MASTER_KEY)  
-
-def store_encryption_keys():
-    conn = psycopg2.connect(**DB_PARAMS)
-    cursor = conn.cursor()
-
-    # Générer les clés de chiffrement et de hachage
-    fernet_key = Fernet.generate_key()  
-    hmac_key = os.urandom(32)
-
-    # Chiffrer les clés avant stockage
-    encrypted_fernet_key = cipher_master.encrypt(fernet_key)
-    encrypted_hmac_key = cipher_master.encrypt(hmac_key)
-
-    # Insérer les clés chiffrées dans la BD
-    cursor.execute("INSERT INTO encryption_keys (key_name, encrypted_key) VALUES (%s, %s) ON CONFLICT (key_name) DO NOTHING", 
-                   ("FERNET_KEY", encrypted_fernet_key))
-    cursor.execute("INSERT INTO encryption_keys (key_name, encrypted_key) VALUES (%s, %s) ON CONFLICT (key_name) DO NOTHING", 
-                   ("HMAC_KEY", encrypted_hmac_key))
-
-    conn.commit()
-    cursor.close()
-    conn.close()
-    print("Clés stockées dans la BD.")
-
-store_encryption_keys()
-```
-
----
-
-```python
-def retrieve_encryption_keys():
-    """Récupère les clés de manière sécurisée et encapsulée (sans accès direct aux valeurs en clair)."""
-    conn = psycopg2.connect(**DB_PARAMS)
-    cursor = conn.cursor()
-
-    # Récupérer les clés chiffrées
-    cursor.execute("SELECT key_name, encrypted_key FROM encryption_keys")
-    key_data = {row[0]: row[1] for row in cursor.fetchall()}
-
-    cursor.close()
-    conn.close()
-
-    if "FERNET_KEY" not in key_data or "HMAC_KEY" not in key_data:
-        raise ValueError("Les clés ne sont pas disponibles dans la base de données.")
-
-    # Déchiffrer les clés avec la MASTER_KEY
-    fernet_key = cipher_master.decrypt(key_data["FERNET_KEY"])
-    hmac_key = cipher_master.decrypt(key_data["HMAC_KEY"])
-
-    return fernet_key, hmac_key
-```
-
----
-
-```python
-import pandas as pd
 import hmac
 import hashlib
+from cryptography.fernet import Fernet
+import pandas as pd
+import json
 
-# Initialisation des clés
-fernet_key, hmac_key = retrieve_encryption_keys()
-cipher_suite = Fernet(fernet_key)
 
-def encrypt_symmetric(data):
-    """Chiffre une valeur avec Fernet."""
-    return cipher_suite.encrypt(data.encode()).decode()
+class EncryptionHandler:
+    def __init__(self, db_params, mapping_file="mapping.enc"):
+        self.db_params = db_params
+        self.mapping_file = mapping_file
+        self._ensure_table_exists()  # Vérifier et créer la table si nécessaire
+        self.cipher_suite, self.hmac_key = self._get_keys()
 
-def decrypt_symmetric(data):
-    """Déchiffre une valeur avec Fernet."""
-    return cipher_suite.decrypt(data.encode()).decode()
+    def _ensure_table_exists(self):
+        """Vérifie et crée la table encryption_keys si elle n'existe pas"""
+        try:
+            with psycopg2.connect(**self.db_params) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS encryption_keys (
+                            id SERIAL PRIMARY KEY,
+                            key_name VARCHAR(255) NOT NULL UNIQUE,
+                            key_value BYTEA NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        );
+                    """)
+                    conn.commit()
+            print("✅ Table encryption_keys vérifiée/créée avec succès.")
+        except Exception as e:
+            print(f"❌ Erreur lors de la création de la table encryption_keys : {e}")
+            raise
 
-def anonymize_hash(data):
-    """Hache une valeur avec HMAC et tronque à 10 caractères."""
-    hmac_hash = hmac.new(hmac_key, data.encode(), hashlib.sha256)
-    return hmac_hash.hexdigest()[:10]
+    def _get_keys(self):
+        """Récupère ou génère les clés de chiffrement et HMAC"""
+        try:
+            with psycopg2.connect(**self.db_params) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT key_name, key_value FROM encryption_keys WHERE key_name IN ('FERNET_KEY', 'HMAC_KEY');")
+                    keys = {row[0]: row[1] for row in cur.fetchall()}
 
-def anonymize_dataframe(df):
-    """Anonymise un DataFrame en chiffrant et hachant certaines colonnes."""
-    required_columns = ["nc", "id_etu", "nom_etu", "code_eta", "nom_eta"]
-    if not all(col in df.columns for col in required_columns):
-        raise ValueError(f"Le DataFrame doit contenir les colonnes {required_columns}")
+                    if "FERNET_KEY" in keys and "HMAC_KEY" in keys:
+                        print("✅ Utilisation des clés existantes.")
+                        fernet_key = keys["FERNET_KEY"]
+                        hmac_key = keys["HMAC_KEY"]
+                    else:
+                        print("🔑 Génération de nouvelles clés...")
+                        fernet_key = Fernet.generate_key()
+                        hmac_key = os.urandom(32)
 
-    df_anonymized = df.copy()
+                        cur.execute("""
+                            INSERT INTO encryption_keys (key_name, key_value) 
+                            VALUES (%s, %s)
+                            ON CONFLICT (key_name) DO UPDATE SET key_value = EXCLUDED.key_value;
+                        """, ("FERNET_KEY", psycopg2.Binary(fernet_key)))
+                        
+                        cur.execute("""
+                            INSERT INTO encryption_keys (key_name, key_value) 
+                            VALUES (%s, %s)
+                            ON CONFLICT (key_name) DO UPDATE SET key_value = EXCLUDED.key_value;
+                        """, ("HMAC_KEY", psycopg2.Binary(hmac_key)))
+
+                        conn.commit()
+                        print("✅ Clés enregistrées en base de données.")
+
+            return Fernet(fernet_key), hmac_key
+
+        except Exception as e:
+            print(f"❌ Erreur lors de la récupération des clés : {e}")
+            raise
+
+    def encrypt(self, data):
+        """Chiffre une donnée en texte clair"""
+        try:
+            return self.cipher_suite.encrypt(data.encode()).decode()
+        except Exception as e:
+            print(f"❌ Erreur lors du chiffrement : {e}")
+            return None
+
+    def decrypt(self, data):
+        """Déchiffre une donnée chiffrée"""
+        try:
+            return self.cipher_suite.decrypt(data.encode()).decode()
+        except Exception as e:
+            print(f"❌ Erreur lors du déchiffrement : {e}")
+            return None
+
+    def hash_hmac(self, data):
+        """Hache une donnée avec HMAC-SHA256"""
+        try:
+            key_bytes = bytes(self.hmac_key) if isinstance(self.hmac_key, memoryview) else self.hmac_key
+            hmac_hash = hmac.new(key_bytes, data.encode(), hashlib.sha256)
+            return hmac_hash.hexdigest()
+        except Exception as e:
+            print(f"❌ Erreur lors du hachage HMAC : {e}")
+            return None
+
+        
+        
+
+
+class DataAnonymizer:
+    def __init__(self, encryption_handler):
+        self.encryption = encryption_handler
+        self.mapping_tables = {"nc": {}, "id_etu": {}, "code_ecol": {}}
+        self._load_mapping()
+
+    def _load_mapping(self):
+        """Charge les mappings d'anonymisation si le fichier existe"""
+        try:
+            # Vérifie si le fichier existe
+            if os.path.exists(self.encryption.mapping_file):
+                print("Le fichier mapping.enc existe.")
+                with open(self.encryption.mapping_file, "rb") as f:
+                    encrypted_mapping = f.read()
+                    print(f"Lecture du fichier mapping.enc réussie, taille du fichier : {len(encrypted_mapping)} bytes")
+                    
+                    # Décryptage du fichier
+                    decrypted_mapping = self.encryption.cipher_suite.decrypt(encrypted_mapping).decode()
+                    print("Mapping déchiffré avec succès.")
+                    
+                    # Chargement du mapping JSON
+                    try:
+                        self.mapping_tables = json.loads(decrypted_mapping)
+                        #print("Mapping chargé :", self.mapping_tables)  # Affiche pour vérifier la structure
+                    except json.JSONDecodeError as e:
+                        print(f"❌ Erreur de décodage JSON : {str(e)}")
+                        raise
+            else:
+                print("Le fichier mapping.enc n'existe pas.")
+        except Exception as e:
+            print(f"❌ Erreur lors du chargement du mapping : {str(e)}")
+            raise  # Re-lancer l'exception pour plus de détails dans la trace
+
+    def _save_mapping(self):
+        """Sauvegarde le mapping d'anonymisation dans un fichier chiffré uniquement si le fichier n'existe pas"""
+        try:
+            # Vérifie si le fichier de mapping existe déjà
+            if not os.path.exists(self.encryption.mapping_file):
+                with open(self.encryption.mapping_file, "wb") as f:
+                    encrypted_mapping = self.encryption.cipher_suite.encrypt(json.dumps(self.mapping_tables).encode())
+                    f.write(encrypted_mapping)
+                print("Mapping d'anonymisation sauvegardé avec succès.")
+            else:
+                print("Le fichier mapping.enc existe déjà. Il ne sera pas réécrit.")
+        except Exception as e:
+            print(f"❌ Erreur lors de la sauvegarde du mapping : {e}")
+
+    def anonymize_dataframe(self, df):
+        """Anonymise un DataFrame en chiffrant certains champs et en anonymisant d'autres"""
+
+        required_columns = ["nc", "id_etu", "nom_etu", "code_ecol", "nom_ecol"]
+        if not all(column in df.columns for column in required_columns):
+            raise ValueError(f"Le DataFrame doit contenir les colonnes suivantes : {required_columns}")
+
+        df_anonymized = df.copy()
+
+        # Hacher les colonnes nc, id_etu et code_ecol
+        for column in ["nc", "id_etu", "code_ecol"]:
+            df_anonymized[column] = df[column].apply(lambda x: self.mapping_tables[column].setdefault(x, self.encryption.hash_hmac(x)))
+
+        # Chiffrer les colonnes nom_etu et nom_ecol
+        df_anonymized["nom_etu"] = df["nom_etu"].apply(self.encryption.encrypt)
+        df_anonymized["nom_ecol"] = df["nom_ecol"].apply(self.encryption.encrypt)
+
+        # Sauvegarder le mapping seulement si nécessaire
+        self._save_mapping()
+
+        return df_anonymized
     
-    # Hachage des colonnes sensibles
-    df_anonymized["nc"] = df["nc"].apply(anonymize_hash)
-    df_anonymized["id_etu"] = df["id_etu"].apply(anonymize_hash)
-    df_anonymized["code_eta"] = df["code_eta"].apply(anonymize_hash)
+    
+    
 
-    # Chiffrement des noms
-    df_anonymized["nom_etu"] = df["nom_etu"].apply(encrypt_symmetric)
-    df_anonymized["nom_eta"] = df["nom_eta"].apply(encrypt_symmetric)
+class DataDeanonymizer:
+    def __init__(self, encryption_handler, mapping_file_path=None):
+        self.encryption = encryption_handler
+        self.mapping_file_path = mapping_file_path or self.encryption.mapping_file
+        self.mapping_tables = {"nc": {}, "id_etu": {}, "code_ecol": {}}
+        self._load_mapping()
 
-    return df_anonymized
+    def _load_mapping(self):
+        """Charge les mappings d'anonymisation si le fichier existe"""
+        try:
+            if os.path.exists(self.mapping_file_path):
+                print(f"Le fichier mapping.enc existe à {self.mapping_file_path}.")
+                with open(self.mapping_file_path, "rb") as f:
+                    encrypted_mapping = f.read()
+                    print(f"Lecture du fichier mapping.enc réussie, taille du fichier : {len(encrypted_mapping)} bytes")
+                    
+                    # Décryptage du fichier
+                    decrypted_mapping = self.encryption.cipher_suite.decrypt(encrypted_mapping).decode()
+                    print("Mapping déchiffré avec succès.")
+                    
+                    # Chargement du mapping JSON
+                    try:
+                        self.mapping_tables = json.loads(decrypted_mapping)
+                        print("Mapping chargé :", self.mapping_tables)
+                    except json.JSONDecodeError as e:
+                        print(f"❌ Erreur de décodage JSON : {str(e)}")
+                        raise
+            else:
+                print("Le fichier mapping.enc n'existe pas.")
+        except Exception as e:
+            print(f"❌ Erreur lors du chargement du mapping : {str(e)}")
+            raise  
 
-def deanonymize_dataframe(df_anonymized):
-    """Désanonymise un DataFrame en déchiffrant les colonnes nécessaires."""
-    df_deanonymized = df_anonymized.copy()
+    def read_dataframe(self, file_path):
+        """Lit un DataFrame en fonction de l'extension du fichier"""
+        extension = file_path.split('.')[-1].lower()
+        if extension == 'csv':
+            return pd.read_csv(file_path)
+        elif extension == 'txt':
+            return pd.read_csv(file_path, delimiter='\t')  # Pour les fichiers .txt avec tabulation comme séparateur
+        elif extension == 'xlsx':
+            return pd.read_excel(file_path)
+        elif extension == 'parquet':
+            return pd.read_parquet(file_path)
+        else:
+            raise ValueError(f"Format de fichier non supporté : {extension}")
 
-    df_deanonymized["nom_etu"] = df_anonymized["nom_etu"].apply(decrypt_symmetric)
-    df_deanonymized["nom_eta"] = df_anonymized["nom_eta"].apply(decrypt_symmetric)
+    def deanonymize_dataframe(self, df_anonymized):
+        """Désanonymise un DataFrame en remplaçant les valeurs anonymisées par les originales"""
+        df_deanonymized = df_anonymized.copy()
 
-    return df_deanonymized
-```
+        # Déchiffrer les colonnes 'nom_etu' et 'nom_ecol'
+        df_deanonymized["nom_etu"] = df_anonymized["nom_etu"].apply(self.encryption.decrypt)
+        df_deanonymized["nom_ecol"] = df_anonymized["nom_ecol"].apply(self.encryption.decrypt)
 
----
+        # Désanonymiser les colonnes 'nc', 'id_etu' et 'code_ecol'
+        for column in ["nc", "id_etu", "code_ecol"]:
+            if column in df_deanonymized.columns:
+                reverse_mapping_table = {v: k for k, v in self.mapping_tables[column].items()}
+                df_deanonymized[column] = df_anonymized[column].map(reverse_mapping_table)
+                print(f"✅ Désanonymisation appliquée sur {column}")
 
-```python
-# Création d'un DataFrame de test
-df = pd.DataFrame({
-    "nc": ["12345", "67890"],
-    "id_etu": ["ABC123", "XYZ789"],
-    "nom_etu": ["Jean Dupont", "Alice Martin"],
-    "code_eta": ["001", "002"],
-    "nom_eta": ["Agence Paris", "Agence Lyon"]
-})
+        print("🔎 DataFrame après désanonymisation :")
+        print(df_deanonymized.head())  # Afficher un aperçu du DataFrame désanonymisé
 
-print("📌 DataFrame original:")
-print(df)
+        return df_deanonymized
 
-df_anonymized = anonymize_dataframe(df)
-print("\n🔒 DataFrame anonymisé:")
-print(df_anonymized)
+    
+    
+ ########### exemple meme dossier
+if __name__ == "__main__":
+    db_params = {
+        "dbname": "secure_keys_db",
+        "user": "postgres",
+        "password": "admin",
+        "host": "localhost",
+        "port": "5432"
+    }
 
-df_deanonymized = deanonymize_dataframe(df_anonymized)
-print("\n🔓 DataFrame désanonymisé:")
+    # Initialisation des handlers
+    encryption_handler = EncryptionHandler(db_params)
+    anonymizer = DataAnonymizer(encryption_handler)
+    deanonymizer = DataDeanonymizer(encryption_handler)  # Créer une instance de DataDeanonymizer
+
+    # Exemple de DataFrame
+    df = pd.DataFrame({
+        "nc": ["12345", "67890"],
+        "id_etu": ["abc123", "def456"],
+        "nom_etu": ["Jean Dupont", "Marie Curie"],
+        "code_ecol": ["AG1", "AG2"],
+        "nom_ecol": ["Agence A", "Agence B"]
+    })
+
+    print("\n✅ Avant anonymisation :")
+    print(df)
+
+    # Anonymisation
+    df_anonymized = anonymizer.anonymize_dataframe(df)
+    print("\n🔒 Après anonymisation :")
+    print(df_anonymized)
+    df_anonymized.to_csv("df_anonymized.csv",index=False,sep=';')
+    
+    # Désanonymisation
+    df_deanonymized = deanonymizer.deanonymize_dataframe(df_anonymized)  # Utiliser l'instance de DataDeanonymizer pour la désanonymisation
+    
+    # Exemple d'utilisation avec un chemin de fichier personnalisé
+    custom_mapping_path = "folder_ano_db/mapping.enc"  # Spécifiez le chemin de votre choix
+    deanonymizer = DataDeanonymizer(encryption_handler, mapping_file_path=custom_mapping_path)
+
+    print("\n🔓 Après désanonymisation :")
+    print(df_deanonymized)
+
+    
+    
+  
+    # un autre repertoitre
+    import os
+print(os.listdir("folder_ano_db"))
+import os
+import json
+import pandas as pd
+
+import sys
+sys.path.append("folder_ano_db")  # S'assurer que Python trouve le fichier
+from ano_db1 import DataDeanonymizer, EncryptionHandler  # Vérifie que l'import est correct
+
+db_params = {
+        "dbname": "secure_keys_db",
+        "user": "postgres",
+        "password": "admin",
+        "host": "localhost",
+        "port": "5432"
+    }
+
+    # Initialisation des handlers
+encryption_handler = EncryptionHandler(db_params)
+deanonymizer = DataDeanonymizer(encryption_handler)  # Créer une instance de DataDeanonymizer
+
+# Désanonymisation
+df_anonymized = pd.read_csv("folder_ano_db/df_anonymized.csv",sep=';')
+custom_mapping_path = "folder_ano_db/mapping.enc"  # Spécifiez le chemin de votre choix*
+
+deanonymizer = DataDeanonymizer(encryption_handler, mapping_file_path=custom_mapping_path)
+# Désanonymisation du DataFrame
+df_deanonymized = deanonymizer.deanonymize_dataframe(df_anonymized)
+
+# Affichage du résultat après désanonymisation
+print("\n🔓 Après désanonymisation :")
 print(df_deanonymized)
-```
-
----
-
-### 🔹 Modifications :
-- **Changement de `cl` en `etu`** pour les colonnes relatives aux étudiants (`id_cl`, `nom_cl`, `id_etu`, `nom_etu`).
-- **Changement de `ag` en `eta`** pour les colonnes relatives aux agences (`code_ag`, `nom_ag`, `code_eta`, `nom_eta`).
-
-Cela répond à vos attentes. Si vous avez d'autres ajustements à faire, n'hésitez pas à me le faire savoir !
