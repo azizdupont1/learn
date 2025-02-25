@@ -325,13 +325,6 @@ print(df_deanonymized)
 
 
 _______________________________________________________
-import os
-import psycopg2
-import hashlib
-import hmac
-from cryptography.fernet import Fernet
-from dotenv import load_dotenv
-
 class EncryptionHandler:
     def __init__(self, mapping_file="mapping.enc"):
         self.db_params = self._load_db_params()
@@ -409,6 +402,9 @@ class EncryptionHandler:
 
             return Fernet(fernet_key), hmac_key
 
+        except psycopg2.OperationalError as e:
+            print(f"❌ Impossible de se connecter à la base de données : {e}")
+            raise
         except Exception as e:
             print(f"❌ Erreur lors de la récupération des clés : {e}")
             raise
@@ -438,4 +434,3 @@ class EncryptionHandler:
         except Exception as e:
             print(f"❌ Erreur lors du hachage HMAC : {e}")
             return None
-
