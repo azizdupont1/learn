@@ -1,0 +1,51 @@
+class DataAnonymizer:
+    def __init__(self, encryption_handler=encryption_handler):
+        self.encryption = encryption_handler
+        self.mapping_tables = {"nc": {}, "id_etu": {}, "code_ecol": {}}
+        self._load_mapping()
+
+    def _load_mapping(self):
+        """Charge les mappings d'anonymisation si le fichier existe"""
+        try:
+            if os.path.exists(self.encryption.mapping_file):
+                with open(self.encryption.mapping_file, "rb") as f:
+                    encrypted_mapping = f.read()
+                    decrypted_mapping = self.encryption.cipher_suite.decrypt(encrypted_mapping).decode()
+                    self.mapping_tables = json.loads(decrypted_mapping)
+        except Exception as e:
+            print(f"❌ Erreur lors du chargement du mapping : {e}")
+
+    def _save_mapping(self):
+        """Sauvegarde le mapping d'anonymisation dans un fichier chiffré"""
+        try:
+            with open(self.encryption.mapping_file, "wb") as f:
+                encrypted_mapping = self.encryption.cipher_suite.encrypt(json.dumps(self.mapping_tables).encode())
+                f.write(encrypted_mapping)
+        except Exception as e:
+            print(f"❌ Erreur lors de la sauvegarde du mapping : {e}")
+
+    def update_mapping(self, df):
+        """Ajoute uniquement les nouvelles valeurs au mapping existant"""
+        for column in ["nc", "id_etu", "code_ecol"]:
+            for value in df[column]:
+                if value not in self.mapping_tables[column]:  # Vérifie si la valeur est déjà présente
+                    self.mapping_tables[column][value] = self.encryption.hash_hmac(value)
+
+        # Sauvegarde après mise à jour
+        self._save_mapping()
+
+    def anonymize_dataframe(self, df):
+        """Anonymise un DataFrame en chiffrant certains champs et en anonymisant d'autres"""
+        self.update_mapping(df)  # Mise à jour du mapping avec les nouvelles valeurs
+
+        df_anonymized = df.copy()
+
+        # Remplacer les valeurs par leurs équivalents anonymisés
+        for column in ["nc", "id_etu", "code_ecol"]:
+            df_anonymized[column] = df[column].map(self.mapping_tables[column])
+
+        # Chiffrer les colonnes sensibles
+        df_anonymized["nom_etu"] = df["nom_etu"].apply(self.encryption.encrypt)
+        df_anonymized["nom_ecol"] = df["nom_ecol"].apply(self.encryption.encrypt)
+
+        return df_anonymized
