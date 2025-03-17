@@ -1,0 +1,226 @@
+ano_function/  # Dossier principal (nom du package)
+│
+├── ano_db2_ok_package/  # Sous-dossier du package
+│   ├── __init__.py      # Fichier d'initialisation du package
+│   └── ano_db2_ok.py    # Votre fichier principal
+│
+├── setup.py             # Script de configuration pour le package
+├── README.md            # Documentation du package
+└── requirements.txt     # Dépendances du package
+
+
+# ano_db2_ok_package/__init__.py
+from .ano_db2_ok import EncryptionHandler, DataDeanonymizer
+
+__all__ = ["DataDeanonymizer"]
+
+____________________
+from setuptools import setup, find_packages
+
+setup(
+    name="ano_db2_ok_package",
+    version="0.3",
+    packages=find_packages(),  # Trouve automatiquement les packages
+    install_requires=[
+        "psycopg2>=2.9.5",
+        "cryptography>=38.0.4",
+        "pandas>=1.5.0",
+        "python-dotenv>=0.21.0",
+    ],
+    author="Essan_test",
+    author_email="votre.email@example.com",
+    description="Un package pour le déchiffrement de données",
+    long_description=open("README.md").read(),
+    #long_description_content_type="text/markdown",
+    #url="https://github.com/votre_utilisateur/ano_db2_ok_package",
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ],
+    python_requires=">=3.6",
+)
+
+______________________README.me
+# ano_db2_ok_package
+
+Un package Python pour le déchiffrement de données.
+
+## Installation
+
+```bash
+pip install ano_db2_ok_package
+
+______________________________
+
+pip install dist/ano_db2_ok_package-0.1-py3-none-any.whl
+
+pip uninstall ano_db2_ok_package
+#Placez-vous dans le dossier racine de votre projet (là où se trouve setup.py).
+pip install -e .  # Ou utilisez le fichier .whl
+
+
+_____________
+from ano_db2_ok_package import DataDeanonymizer #EncryptionHandler
+import os
+import pandas as pd
+import sys
+
+deanonymizer = DataDeanonymizer()
+df_anonymized = pd.read_csv()
+
+# Désanonymisation du DataFrame
+df_deanonymized = deanonymizer.deanonymize_dataframe(df_anonymized)
+
+print(df_deanonymized)
+
+
+__________________ forme d installation
+Pour mettre à jour votre package après avoir modifié le fichier `setup.py`, voici les étapes à suivre en fonction de la méthode de distribution que vous utilisez :
+
+---
+
+### **1. Si vous utilisez un fichier `.whl` (Option 1)**
+
+#### a. **Mettre à jour la version dans `setup.py`**
+Avant de créer une nouvelle version, assurez-vous d'incrémenter le numéro de version dans `setup.py`. Par exemple, passez de `version="0.1"` à `version="0.2"`.
+
+```python
+setup(
+    name="ano_db2_ok_package",
+    version="0.2",  # Incrémentez la version ici
+    ...
+)
+```
+
+#### b. **Recréer le fichier `.whl`**
+Depuis le dossier racine de votre projet, exécutez :
+
+```bash
+python setup.py bdist_wheel
+```
+
+Cela générera un nouveau fichier `.whl` dans le dossier `dist/`, par exemple : `dist/ano_db2_ok_package-0.2-py3-none-any.whl`.
+
+#### c. **Partager la nouvelle version**
+- Partagez le nouveau fichier `.whl` avec votre équipe.
+- Chaque membre doit désinstaller l'ancienne version et installer la nouvelle :
+
+  ```bash
+  pip uninstall ano_db2_ok_package
+  pip install chemin/vers/ano_db2_ok_package-0.2-py3-none-any.whl
+  ```
+
+---
+
+### **2. Si vous utilisez Git (Option 4)**
+
+#### a. **Mettre à jour la version dans `setup.py`**
+Comme précédemment, incrémentez le numéro de version dans `setup.py`.
+
+#### b. **Pousser les modifications sur Git**
+1. Ajoutez les modifications :
+   ```bash
+   git add setup.py
+   ```
+2. Committez les modifications :
+   ```bash
+   git commit -m "Mise à jour de setup.py pour la version 0.2"
+   ```
+3. Poussez les modifications :
+   ```bash
+   git push origin main  # Ou la branche appropriée
+   ```
+
+#### c. **Mettre à jour le package chez les utilisateurs**
+Chaque membre de l'équipe doit :
+1. Mettre à jour le dépôt local :
+   ```bash
+   git pull origin main
+   ```
+2. Réinstaller le package en mode développement :
+   ```bash
+   pip install -e .
+   ```
+
+---
+
+### **3. Si vous utilisez un dépôt privé (Option 3)**
+
+#### a. **Mettre à jour la version dans `setup.py`**
+Incrémenez le numéro de version dans `setup.py`.
+
+#### b. **Recréer le fichier `.whl`**
+Exécutez :
+```bash
+python setup.py bdist_wheel
+```
+
+#### c. **Publier la nouvelle version sur le dépôt privé**
+Utilisez `twine` pour uploader la nouvelle version :
+```bash
+twine upload --repository-url http://votre-depot-prive dist/ano_db2_ok_package-0.2-py3-none-any.whl
+```
+
+#### d. **Mettre à jour le package chez les utilisateurs**
+Chaque membre de l'équipe doit mettre à jour le package :
+```bash
+pip install --upgrade --extra-index-url http://votre-depot-prive ano_db2_ok_package
+```
+
+---
+
+### **4. Si vous utilisez un environnement virtuel partagé (Option 5)**
+
+#### a. **Mettre à jour la version dans `setup.py`**
+Incrémenez le numéro de version dans `setup.py`.
+
+#### b. **Mettre à jour le package dans l'environnement virtuel**
+1. Activez l'environnement virtuel partagé :
+   ```bash
+   source /chemin/vers/env_partage/bin/activate  # Sur macOS/Linux
+   .\chemin\vers\env_partage\Scripts\activate   # Sur Windows
+   ```
+2. Réinstallez le package :
+   ```bash
+   pip install -e /chemin/vers/ano_db2_ok_package --upgrade
+   ```
+
+#### c. **Informer les utilisateurs**
+Assurez-vous que tous les membres de l'équipe savent qu'ils doivent réactiver l'environnement virtuel pour bénéficier des modifications.
+
+---
+
+### **5. Si vous utilisez le mode développement sur un serveur partagé (Option 2)**
+
+#### a. **Mettre à jour la version dans `setup.py`**
+Incrémenez le numéro de version dans `setup.py`.
+
+#### b. **Mettre à jour le package**
+1. Placez-vous dans le dossier du projet sur le serveur.
+2. Réinstallez le package en mode développement :
+   ```bash
+   pip install -e . --upgrade
+   ```
+
+#### c. **Informer les utilisateurs**
+Les modifications seront immédiatement disponibles pour tous les utilisateurs.
+
+---
+
+### **Récapitulatif des Commandes**
+
+| **Option**                          | **Commandes pour la mise à jour**                                                                 |
+|-------------------------------------|---------------------------------------------------------------------------------------------------|
+| **Fichier `.whl`**                  | `python setup.py bdist_wheel` → Partagez le nouveau `.whl` → `pip install --upgrade chemin/vers/.whl` |
+| **Git**                             | `git commit -m "Mise à jour"` → `git push` → `git pull` → `pip install -e .`                     |
+| **Dépôt privé**                     | `python setup.py bdist_wheel` → `twine upload` → `pip install --upgrade --extra-index-url ...`    |
+| **Environnement virtuel partagé**   | `pip install -e /chemin/vers/projet --upgrade`                                                  |
+| **Mode développement sur serveur**  | `pip install -e . --upgrade`                                                                    |
+
+---
+
+### **Conseils**
+- **Communication** : Informez toujours votre équipe des mises à jour et des changements.
+- **Versioning** : Suivez les règles de [versioning sémantique](https://semver.org/) (par exemple, `0.1.0` → `0.2.0` pour les nouvelles fonctionnalités).
+- **Tests** : Assurez-vous de tester la nouvelle version avant de la distribuer.
