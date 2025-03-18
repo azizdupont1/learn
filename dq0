@@ -1,0 +1,58 @@
+Guide de mise en place d’un contrôle qualité des données bancaires
+1. Introduction
+Dans le secteur cai, la qualité des données est essentielle pour assurer la fiabilité des analyses, la conformité réglementaire et l’efficacité opérationnelle.
+Un mauvais contrôle des données peut entraîner des risques financiers, réglementaires et réputationnels. 
+Ce guide propose des outils et méthodologies pour détecter et corriger les anomalies.
+
+Dans le domaine cc, la qualité des données est un enjeu majeur pour assurer la conformité réglementaire, optimiser les processus métier et fiabiliser les analyses. 
+Voici les principales mesures de qualité des données à définir et contrôler en tant que Data Engineer Senior :
+
+### **1. Complétude des données**  
+- Vérifier que toutes les colonnes critiques (ex. : `id_client`, `num_compte`, `montant`, `date_transaction`) sont renseignées.  
+- Définir un taux de complétude acceptable pour chaque type de donnée (ex. : 100 % pour les transactions, > 95 % pour les informations clients).  
+
+### **2. Cohérence inter- et intra-tables**  
+- Vérifier l'alignement des données entre plusieurs systèmes (ex. : un solde dans la table des comptes doit correspondre aux transactions dans la table historique).  
+- Détecter les incohérences logiques, comme une transaction avec un montant négatif alors qu'elle est censée être un dépôt.  
+
+### **3. Conformité aux standards et aux réglementations**  
+- Vérifier l’alignement avec les normes bancaires (Bâle III, IFRS 9, GDPR, KYC, LCB-FT).  
+- S'assurer que les formats sont respectés (ex. : IBAN, SWIFT, N° de carte conforme à Luhn).  
+
+### **4. Unicité et gestion des doublons**  
+- Identifier les doublons via des règles métier (ex. : même client enregistré plusieurs fois avec des variations d'orthographe).  
+- Appliquer des règles de déduplication sur les données sensibles (clients, transactions).  
+
+### **5. Intégrité référentielle**  
+- S'assurer que toutes les clés étrangères (`num_client`, `num_compte`) existent dans les tables référentes.  
+- Vérifier que la relation entre les tables est respectée (ex. : une transaction ne peut pas exister sans compte associé).  
+
+### **6. Exactitude et fiabilité des données**  
+- Contrôler la vraisemblance des montants (ex. : un virement de 1 000 000 € sur un compte standard peut être suspect).  
+- Détecter les valeurs aberrantes via des analyses statistiques (écart-type, quantiles).  
+
+### **7. Traçabilité et auditabilité**  
+- Assurer la journalisation des modifications (ex. : qui a modifié une donnée, à quelle date).  
+- Implémenter des mécanismes de versioning et d'historisation des données critiques.  
+
+### **8. Synchronisation et fraîcheur des données**  
+- S'assurer que les données des différents systèmes sont mises à jour en temps voulu (ex. : transactions en quasi temps réel pour le risque de fraude).  
+- Définir des seuils de latence acceptables pour les mises à jour des données (batch vs temps réel).  
+
+### **9. Disponibilité et accessibilité des données**  
+- Vérifier que les données sont accessibles aux bonnes parties prenantes en fonction des droits d’accès.  
+- Définir des SLA sur la disponibilité des données (temps de réponse des requêtes, fiabilité des pipelines).  
+
+### **10. Sécurité et confidentialité des données**  
+- Appliquer des politiques de chiffrement et anonymisation sur les données sensibles (ex. : masquage des IBAN).  
+- Mettre en place un monitoring des accès et des tentatives de violation de données.  
+
+---
+
+### **Outils et Processus de Contrôle**
+- **Outils de profiling** : Great Expectations, Pandas Profiling, DataLens.  
+- **Data Lineage et Cataloging** : Apache Atlas, Alation, Collibra.  
+- **Validation automatique** : DBT, Airflow avec des checks intégrés, tests SQL automatisés.  
+- **Reporting Qualité** : Tableaux de bord sur Tableau, Power BI ou Superset pour suivre les KPI de qualité.  
+
+Ces mesures sont cruciales pour garantir la fiabilité et l’exploitabilité des données dans un environnement bancaire exigeant en termes de conformité et de sécurité.
