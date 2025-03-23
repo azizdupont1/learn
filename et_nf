@@ -1,0 +1,159 @@
+import PyPDF2
+import openpyxl
+import re
+import pandas as pd
+
+# Fonction pour extraire les données du PDF
+def extract_pdf_data(pdf_path):
+    data = []
+    with open(pdf_path, 'rb') as file:
+        reader = PyPDF2.PdfReader(file)
+        for page in reader.pages:
+            text = page.extract_text()
+            lines = text.split('\n')
+            for line in lines:
+                # Utiliser une expression régulière pour capturer les colonnes
+                match = re.match(r'(\w+)\s+(.+?)\s+(\d[\d\s,]*)\s+(\d[\d\s,]*)\s+(\d[\d\s,]*)\s+(\d[\d\s,]*)', line)
+                if match:
+                    ref = match.group(1).strip()
+                    actif = match.group(2).strip()
+                    brut = match.group(3).strip()  # Conserver les espaces
+                    amort = match.group(4).strip()  # Conserver les espaces
+                    net_n = match.group(5).strip()  # Conserver les espaces
+                    net_n1 = match.group(6).strip()  # Conserver les espaces
+                    data.append([ref, actif, '', brut, amort, net_n, net_n1])
+    return data
+
+# Fonction pour mettre à jour le fichier Excel
+def update_excel_with_pdf_data(excel_path, pdf_data):
+    workbook = openpyxl.load_workbook(excel_path)
+    sheet = workbook['Bilan']  # Travailler sur la feuille 'Bilan'
+
+    # Créer un dictionnaire pour stocker les données du PDF par REF
+    pdf_data_dict = {row[0]: row for row in pdf_data}
+
+    # Parcourir les lignes du fichier Excel
+    for excel_row in sheet.iter_rows(min_row=2, max_col=7, max_row=sheet.max_row):
+        ref_excel = excel_row[0].value  # Référence dans le fichier Excel
+        if ref_excel in pdf_data_dict:  # Vérifier si la référence existe dans les données du PDF
+            # Récupérer les données correspondantes du PDF
+            ref, actif, note, brut, amort, net_n, net_n1 = pdf_data_dict[ref_excel]
+            # Mettre à jour les cellules dans le fichier Excel
+            excel_row[1].value = actif
+            excel_row[2].value = note
+            excel_row[3].value = brut
+            excel_row[4].value = amort
+            excel_row[5].value = net_n
+            excel_row[6].value = net_n1
+            print(f"Mise à jour de la référence {ref_excel} dans le fichier Excel.")
+
+    # Sauvegarder le fichier Excel
+    workbook.save(excel_path)
+    print("Fichier Excel sauvegardé avec succès.")
+
+# Chemins des fichiers
+pdf_path = '/et.pdf'
+excel_path = '/nt.xlsx'
+
+# Extraire les données du PDF
+pdf_data = extract_pdf_data(pdf_path)
+
+# Convertir les données en DataFrame pour vérification
+df = pd.DataFrame(pdf_data, columns=['REF', 'a ', 'nt', '31/12/N BRUT', 'A et dep.', 'NET', ' 31/12/N-1 NET'])
+print("Données extraites du PDF :")
+
+# Mettre à jour le fichier Excel avec les données extraites
+update_excel_with_pdf_data(excel_path, pdf_data)
+
+print("Données mises à jour avec succès.")
+
+________________________________
+### 1. **`(\w+)`**
+   - **`\w+`** : Capture une séquence de caractères alphanumériques (lettres, chiffres et underscores `_`).
+   - **`()`** : Les parenthèses créent un groupe de capture, ce qui permet d'extraire cette partie de la ligne.
+   - **Exemple** : Si la ligne commence par `AD`, ce groupe capturera `AD`.
+
+   **Utilisation** : Ce groupe capture la colonne `R`.
+
+---
+
+### 2. **`\s+`**
+   - **`\s+`** : Capture un ou plusieurs espaces blancs (espaces, tabulations, etc.).
+   - **Exemple** : Sépare `AD` de la colonne suivante.
+
+---
+
+### 3. **`(.+?)`**
+   - **`.+?`** : Capture une séquence de caractères (n'importe quel caractère sauf un saut de ligne) de manière non gourmande (c'est-à-dire qu'il s'arrête dès que la prochaine partie de l'expression régulière est trouvée).
+   - **`()`** : Les parenthèses créent un groupe de capture.
+   - **Exemple** : Si la ligne contient `Immo`, ce groupe capturera cette chaîne.
+
+   **Utilisation** : Ce groupe capture la colonne `ac`.
+
+---
+
+### 4. **`\s+`**
+   - **`\s+`** : Capture un ou plusieurs espaces blancs.
+   - **Exemple** : Sépare `Ac` de la colonne suivante.
+
+---
+
+### 5. **`(\d[\d\s,]*)`**
+   - **`\d`** : Capture un chiffre (0-9).
+   - **`[\d\s,]*`** : Capture une séquence de chiffres, espaces ou virgules, répétée zéro ou plusieurs fois.
+   - **`()`** : Les parenthèses créent un groupe de capture.
+   - **Exemple** : Si la ligne contient `22`, ce groupe capturera cette valeur.
+
+   **Utilisation** : Ce groupe capture la colonne `EXERCICE au 31/12/N BRUT`.
+
+---
+
+### 6. **`\s+`**
+   - **`\s+`** : Capture un ou plusieurs espaces blancs.
+   - **Exemple** : Sépare `BRUT` de la colonne suivante.
+
+---
+
+### 7. **`(\d[\d\s,]*)`**
+   - Similaire au point 5, ce groupe capture une valeur numérique avec des espaces ou des virgules.
+   - **Exemple** : Si la ligne contient `1`, ce groupe capturera cette valeur.
+
+   **Utilisation** : Ce groupe capture la colonne `AMORT et DEPREC.`.
+
+---
+
+### 8. **`\s+`**
+   - **`\s+`** : Capture un ou plusieurs espaces blancs.
+   - **Exemple** : Sépare `AMORT et DEPREC.` de la colonne suivante.
+
+---
+
+### 9. **`(\d[\d\s,]*)`**
+   - Similaire aux points 5 et 7, ce groupe capture une valeur numérique avec des espaces ou des virgules.
+   - **Exemple** : Si la ligne contient `3`, ce groupe capturera cette valeur.
+
+   **Utilisation** : Ce groupe capture la colonne `NET`.
+
+---
+
+### 10. **`\s+`**
+   - **`\s+`** : Capture un ou plusieurs espaces blancs.
+   - **Exemple** : Sépare `NET` de la colonne suivante.
+
+---
+
+### 11. **`(\d[\d\s,]*)`**
+   - Similaire aux points 5, 7 et 9, ce groupe capture une valeur numérique avec des espaces ou des virgules.
+   - **Exemple** : Si la ligne contient `, ce groupe capturera cette valeur.
+
+   **Utilisation** : Ce groupe capture la colonne `E`.
+
+---
+
+### Résumé des groupes de capture :
+1. **Groupe 1** : `(\w+)` → `REF`
+2. **Groupe 2** : `(.+?)` → `ACTIF`
+3. **Groupe 3** : `(\d[\d\s,]*)` → `EXERCICE au 31/12/N BRUT`
+4. **Groupe 4** : `(\d[\d\s,]*)` → `AM et DE.`
+5. **Groupe 5** : `(\d[\d\s,]*)` → `NET`
+6. **Groupe 6** : `(\d[\d\s,]*)` → `EXERCICE AU 31/12/N-1 NET`
