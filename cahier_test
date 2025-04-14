@@ -1,0 +1,77 @@
+# **Cahier de Test - Site Vitrine**  
+**Version :** 1.0  
+**Date :** [Date]  
+**Rédigé par :** [Votre Nom / Société]  
+**Client :** [Nom du Client]  
+
+---
+
+## **1. Introduction**  
+Ce cahier de test a pour objectif de vérifier la conformité, la fonctionnalité et l’expérience utilisateur (UX) du site vitrine développé pour [Nom du Client]. Il sert de référence pour les tests avant mise en production et garantit la qualité du livrable.  
+
+### **1.1 Portée du document**  
+- Tests fonctionnels  
+- Tests d’interface utilisateur (UI)  
+- Tests de compatibilité (responsive, navigateurs)  
+- Tests de performance  
+- Validation SEO de base  
+
+---
+
+## **2. Environnements de Test**  
+| Environnement | URL | Navigateurs Testés |  
+|--------------|-----|-------------------|  
+| Pré-production | [URL de test] | Chrome, Firefox, Safari, Edge |  
+| Production (après déploiement) | [URL live] | Chrome, Firefox, Safari, Edge |  
+
+---
+
+## **3. Scénarios de Test**  
+
+### **3.1 Tests Fonctionnels**  
+| **Cas de Test** | **Description** | **Résultat Attendu** | **Statut (OK/KO)** | **Commentaires** |  
+|----------------|----------------|----------------------|-------------------|----------------|  
+| **Accès à la page d’accueil** | Chargement de la homepage | La page s’affiche sans erreur |  |  |  
+| **Navigation entre pages** | Cliquer sur chaque lien du menu | Redirection correcte vers les pages cibles |  |  |  
+| **Formulaire de contact** | Soumettre un formulaire valide | Message de confirmation envoyé |  |  |  
+| **Affichage des médias** | Vérifier images/vidéos | Tous les médias se chargent correctement |  |  |  
+
+### **3.2 Tests Responsive (Mobile First)**  
+| **Appareil/Écran** | **Résolution** | **Comportement Attendu** | **Statut** |  
+|--------------------|----------------|--------------------------|-----------|  
+| Mobile (iPhone/Android) | 375x667 | Adaptation correcte |  |  
+| Tablette | 768x1024 | Mise en page cohérente |  |  
+| Desktop | 1920x1080 | Affichage optimal |  |  
+
+### **3.3 Performance et SEO**  
+| **Élément** | **Attendu** | **Outils de Test** |  
+|------------|------------|-------------------|  
+| Temps de chargement | < 3s | Google PageSpeed, GTmetrix |  
+| Balises meta (title, description) | Optimisées | SEOptimer |  
+| Images compressées | Format WebP si possible | TinyPNG, Lighthouse |  
+
+---
+
+## **4. Procédure de Reporting**  
+- **Bugs critiques** : Bloquants (ex : page inaccessible) → Correction immédiate  
+- **Bugs majeurs** : Affectent l’UX (ex : formulaire défaillant) → Correction avant livraison  
+- **Bugs mineurs** : Améliorations (ex : espacement texte) → Corrigés si temps disponible  
+
+---
+
+## **5. Validation**  
+**✅ Client :** [Nom et signature]  
+**✅ Chef de projet :** [Nom et signature]  
+**✅ Date d’approbation :** [Date]  
+
+---
+
+**Remarques :**  
+- Ce document peut être mis à jour en fonction des retours client.  
+- Les tests doivent être reconduits après chaque correction majeure.  
+
+📌 *Document confidentiel - Propriété de [Votre Société]*  
+
+---
+
+Ce modèle professionnel couvre l’essentiel pour un cahier de test de site vitrine. Personnalisez-le selon vos besoins spécifiques (intégration de tracking, tests A/B, etc.).
