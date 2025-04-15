@@ -1,0 +1,190 @@
+from pypdf import PdfReader, PdfWriter
+
+def extract_pages(input_pdf_path, output_pdf_path, start_page, end_page):
+    reader = PdfReader(input_pdf_path)
+    writer = PdfWriter()
+    
+    for page_num in range(start_page - 1, end_page):
+        writer.add_page(reader.pages[page_num])
+    
+    with open(output_pdf_path, 'wb') as output_file:
+        writer.write(output_file)
+    
+    print(f"Pages {start_page} à {end_page} extraites dans {output_pdf_path}")
+
+# Exemple d'utilisation
+extract_pages("data/input/ETAT-FINANCIER-M2HD-2022.pdf", "pages_extractes5.pdf", 5, 5)
+
+____________________________________________________________
+
+import pdfplumber
+import pandas as pd
+import re
+
+def extract_pdf_table(pdf_path):
+    with pdfplumber.open(pdf_path) as pdf:
+        page = pdf.pages[0]
+        
+        # Paramètres optimisés pour la structure du tableau
+        table_settings = {
+            "vertical_strategy": "lines",
+            "horizontal_strategy": "lines",
+            "explicit_vertical_lines": page.curves + page.edges,
+            "explicit_horizontal_lines": page.curves + page.edges,
+            "intersection_y_tolerance": 10,
+            "intersection_x_tolerance": 10
+        }
+        
+        # Extraction du tableau complet
+        table = page.extract_table(table_settings)
+        
+        # Nettoyage des cellules
+        cleaned_table = []
+        for row in table:
+            cleaned_row = [re.sub(r'\s+', ' ', str(cell).strip()) if cell else "" for cell in row]
+            cleaned_table.append(cleaned_row)
+            #print(cleaned_table)
+        # Conversion en DataFrame en conservant toutes les lignes
+        df = pd.DataFrame(cleaned_table)
+        
+        # Nommage des colonnes basé sur la première ligne
+        if len(df) > 0:
+            df.columns = df.iloc[0]
+            df = df[1:]
+        
+        # Réindexation pour conserver la position exacte des lignes
+        df.reset_index(drop=True, inplace=True)
+        
+        return df
+
+# Utilisation
+try:
+    df = extract_pdf_table("pages_extractes60.pdf")
+    
+    print(f"Dimensions du tableau extrait: {df.shape}")
+    print("\nAperçu des données:")
+   # print(df.head(20))
+    
+    # Export en CSV en conservant les vides
+    df.to_csv("bilan_exact.csv", index=False, encoding='utf-8-sig')
+    print("\nFichier CSV généré: bilan_exact.csv")
+    
+   
+except Exception as e:
+    print(f"Erreur lors de l'extraction: {str(e)}")
+_________________________________________________________________________
+
+
+import pdfplumber
+import pandas as pd
+import re
+
+def extract_clean_financial_data(pdf_path):
+    with pdfplumber.open(pdf_path) as pdf:
+        page = pdf.pages[0]
+        
+        # Paramètres optimisés pour les PDF financiers
+        table_settings = {
+            "vertical_strategy": "text",
+            "horizontal_strategy": "text",
+            "intersection_y_tolerance": 10,
+            "intersection_x_tolerance": 10
+        }
+        
+        # Extraction du tableau
+        raw_table = page.extract_table(table_settings)
+        
+        if not raw_table:
+            raise ValueError("Aucun tableau trouvé dans le document")
+        
+        # Traitement des données
+        data = []
+        current_main_ref = ""
+        current_main_category = ""
+        
+        for row in raw_table:
+            # Nettoyage des cellules
+            cleaned_row = [
+                re.sub(r'\s+', ' ', str(cell).strip()) if cell is not None else ""
+                for cell in row
+            ]
+            #print(cleaned_row
+            # Ignorer les lignes totalement vides
+            if not any(cleaned_row):
+                continue
+                
+            # Détection des catégories principales
+            if len(cleaned_row[0]) == 2 and cleaned_row[0].isalpha():
+                current_main_ref = cleaned_row[0]
+                current_main_category = cleaned_row[1] if len(cleaned_row) > 1 else ""
+                
+                data.append({
+                    'REF': current_main_ref,
+                    'CATEGORIE': current_main_category,
+                    'SOUS_CATEGORIE': '',
+                    'BRUT': cleaned_row[3] if len(cleaned_row) > 3 else '0',
+                    'AMORT': cleaned_row[4] if len(cleaned_row) > 4 else '0',
+                    'NET_N': cleaned_row[5] if len(cleaned_row) > 5 else '0',
+                    'NET_N-1': cleaned_row[6] if len(cleaned_row) > 6 else '0'
+                })
+                continue
+            
+            # Détection des sous-catégories
+            if (len(cleaned_row[0]) == 2 and 
+                cleaned_row[0][0] == current_main_ref[0]):
+                
+                data.append({
+                    'REF': f"{current_main_ref}/{cleaned_row[0]}",
+                    'CATEGORIE': current_main_category,
+                    'SOUS_CATEGORIE': cleaned_row[1] if len(cleaned_row) > 1 else '',
+                    'BRUT': cleaned_row[3] if len(cleaned_row) > 3 else '0',
+                    'AMORT': cleaned_row[4] if len(cleaned_row) > 4 else '0',
+                    'NET_N': cleaned_row[5] if len(cleaned_row) > 5 else '0',
+                    'NET_N-1': cleaned_row[6] if len(cleaned_row) > 6 else '0'
+                })
+        
+        # Création du DataFrame
+        df = pd.DataFrame(data)
+        
+        # Conversion des valeurs numériques
+        for col in ['BRUT', 'AMORT', 'NET_N', 'NET_N-1']:
+            if col in df.columns:
+                # Étape 1: Supprimer les espaces et caractères non numériques
+                df[col] = df[col].apply(lambda x: re.sub(r'[^\d\-]', '', str(x)))
+                # Étape 2: Remplacer les vides par '0'
+                df[col] = df[col].replace('', '0')
+                # Étape 3: Conversion en numérique
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        
+        return df
+
+# Utilisation
+try:
+    df = extract_clean_financial_data("pages_extractes5.pdf")
+    
+    # Configuration de l'affichage
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', 1000)
+    pd.set_option('display.max_colwidth', 40)
+    
+    print("Extraction réussie. Aperçu des données :")
+    print(df)
+    
+    # Export CSV
+    df.to_csv("bilan_final_corrige.csv", index=False, encoding='utf-8-sig')
+    print("\nFichier CSV généré : bilan_final_corrige.csv")
+    
+    # Export Excel avec formatage
+    with pd.ExcelWriter("bilan_final_corrige.xlsx") as writer:
+        df.to_excel(writer, index=False, sheet_name='Bilan')
+        # Ajustement automatique des colonnes
+        for column in df:
+            column_width = max(df[column].astype(str).map(len).max(), len(column))
+            col_idx = df.columns.get_loc(column)
+            writer.sheets['Bilan'].set_column(col_idx, col_idx, column_width + 2)
+    
+    print("Fichier Excel généré : bilan_final_corrige.xlsx")
+
+except Exception as e:
+    print(f"Erreur lors de l'extraction : {str(e)}")
