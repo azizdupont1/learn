@@ -1,77 +1,173 @@
-# **Cahier de Test - Site Vitrine**  
-**Version :** 1.0  
-**Date :** [Date]  
-**Rédigé par :** [Votre Nom / Société]  
-**Client :** [Nom du Client]  
+import pandas as pd
 
----
+# Afficher toutes les lignes
+pd.set_option('display.max_rows', None)
 
-## **1. Introduction**  
-Ce cahier de test a pour objectif de vérifier la conformité, la fonctionnalité et l’expérience utilisateur (UX) du site vitrine développé pour [Nom du Client]. Il sert de référence pour les tests avant mise en production et garantit la qualité du livrable.  
+# Afficher toutes les colonnes
+pd.set_option('display.max_columns', None)
 
-### **1.1 Portée du document**  
-- Tests fonctionnels  
-- Tests d’interface utilisateur (UI)  
-- Tests de compatibilité (responsive, navigateurs)  
-- Tests de performance  
-- Validation SEO de base  
+# Éviter le découpage de colonnes larges
+pd.set_option('display.width', None)
+pd.set_option('display.max_colwidth', None)
 
----
+___________________
 
-## **2. Environnements de Test**  
-| Environnement | URL | Navigateurs Testés |  
-|--------------|-----|-------------------|  
-| Pré-production | [URL de test] | Chrome, Firefox, Safari, Edge |  
-| Production (après déploiement) | [URL live] | Chrome, Firefox, Safari, Edge |  
+# ==============================================
+# SECTION 1: INITIALISATION ET PARAMETRES
+# ==============================================
 
----
+# Importation des bibliothèques nécessaires
+import pandas as pd  # Pour la manipulation de données tabulaires
+from datetime import timedelta  # Pour les calculs de dates
 
-## **3. Scénarios de Test**  
+# Paramètre principal: fenêtre de vérification après chaque anniversaire
+jours_fenetre = 15  # On vérifie les 15 jours suivant chaque date anniversaire
 
-### **3.1 Tests Fonctionnels**  
-| **Cas de Test** | **Description** | **Résultat Attendu** | **Statut (OK/KO)** | **Commentaires** |  
-|----------------|----------------|----------------------|-------------------|----------------|  
-| **Accès à la page d’accueil** | Chargement de la homepage | La page s’affiche sans erreur |  |  |  
-| **Navigation entre pages** | Cliquer sur chaque lien du menu | Redirection correcte vers les pages cibles |  |  |  
-| **Formulaire de contact** | Soumettre un formulaire valide | Message de confirmation envoyé |  |  |  
-| **Affichage des médias** | Vérifier images/vidéos | Tous les médias se chargent correctement |  |  |  
+# ==============================================
+# SECTION 2: PREPARATION DES DONNEES
+# ==============================================
 
-### **3.2 Tests Responsive (Mobile First)**  
-| **Appareil/Écran** | **Résolution** | **Comportement Attendu** | **Statut** |  
-|--------------------|----------------|--------------------------|-----------|  
-| Mobile (iPhone/Android) | 375x667 | Adaptation correcte |  |  
-| Tablette | 768x1024 | Mise en page cohérente |  |  
-| Desktop | 1920x1080 | Affichage optimal |  |  
+# Création du DataFrame des produits/abonnements
+df_produits = pd.DataFrame({
+    'id': [1, 2],  # Identifiants clients
+    'date_ouverture': ['2025-02-24', '2025-01-10'],  # Dates de souscription
+    'montant_pack': [100, 200]  # Montants à payer mensuellement
+})
 
-### **3.3 Performance et SEO**  
-| **Élément** | **Attendu** | **Outils de Test** |  
-|------------|------------|-------------------|  
-| Temps de chargement | < 3s | Google PageSpeed, GTmetrix |  
-| Balises meta (title, description) | Optimisées | SEOptimer |  
-| Images compressées | Format WebP si possible | TinyPNG, Lighthouse |  
+# Création du DataFrame des soldes journaliers
+df_solde = pd.DataFrame({
+    'id': [1]*100 + [2]*90,  # 100 jours pour id=1, 90 pour id=2
+    'date': (pd.date_range('2025-03-24', periods=100).tolist() + 
+            pd.date_range('2025-04-10', periods=90).tolist()),  # Plages de dates
+    'solde': ([90,95,100,80,120,90,85,70,60,50,40,30,20,10,5]*7)[:100] +  # Soldes id=1
+             [150,180,190,200,210,220,230,180,150,140,130,120,110,100,90]*6  # Soldes id=2
+})
 
----
+# Conversion des dates en format datetime pour les calculs
+df_produits['date_ouverture'] = pd.to_datetime(df_produits['date_ouverture'])
+df_solde['date'] = pd.to_datetime(df_solde['date'])
 
-## **4. Procédure de Reporting**  
-- **Bugs critiques** : Bloquants (ex : page inaccessible) → Correction immédiate  
-- **Bugs majeurs** : Affectent l’UX (ex : formulaire défaillant) → Correction avant livraison  
-- **Bugs mineurs** : Améliorations (ex : espacement texte) → Corrigés si temps disponible  
+# ==============================================
+# SECTION 3: GENERATION DES DATES ANNIVERSAIRES
+# ==============================================
 
----
+def generer_anniversaires_mensuels(row):
+    """
+    Génère les dates anniversaires mensuelles à partir de la date d'ouverture
+    Args:
+        row: Une ligne du DataFrame df_produits contenant id, date_ouverture, montant_pack
+    Returns:
+        DataFrame avec les dates anniversaires pour ce client
+    """
+    dates = []
+    current_date = row['date_ouverture']
+    max_date = df_solde['date'].max()  # Date maximale disponible dans les soldes
+    
+    # On commence à générer à partir du 1er mois après ouverture
+    next_date = current_date + pd.DateOffset(months=1)
+    
+    while next_date <= max_date:
+        dates.append(next_date)
+        try:
+            # Essayer d'ajouter un mois normalement
+            next_date = next_date + pd.DateOffset(months=1)
+        except:
+            # Si date invalide (ex: 31 janvier + 1 mois), ajuster à la fin du mois suivant
+            next_date = next_date + pd.offsets.MonthEnd(1) + pd.Timedelta(days=1)
+    
+    return pd.DataFrame({
+        'id': row['id'],
+        'date_anniversaire': dates,
+        'montant_pack': row['montant_pack']
+    })
 
-## **5. Validation**  
-**✅ Client :** [Nom et signature]  
-**✅ Chef de projet :** [Nom et signature]  
-**✅ Date d’approbation :** [Date]  
+# Application à tous les clients
+df_anniversaires = pd.concat(
+    [generer_anniversaires_mensuels(row) for _, row in df_produits.iterrows()],
+    ignore_index=True
+)
 
----
+# ==============================================
+# SECTION 4: VERIFICATION DES SOLDES
+# ==============================================
 
-**Remarques :**  
-- Ce document peut être mis à jour en fonction des retours client.  
-- Les tests doivent être reconduits après chaque correction majeure.  
+results = []  # Stockage des résultats
 
-📌 *Document confidentiel - Propriété de [Votre Société]*  
+for _, anniv in df_anniversaires.iterrows():
+    # Définition de la période à vérifier (date anniversaire + 15 jours)
+    periode_fin = anniv['date_anniversaire'] + timedelta(days=jours_fenetre)
+    
+    # 1. Filtrage des soldes dans la période
+    soldes_periode = df_solde[
+        (df_solde['id'] == anniv['id']) &  # Pour le client concerné
+        (df_solde['date'] >= anniv['date_anniversaire']) &  # Après anniversaire
+        (df_solde['date'] <= periode_fin)  # Avant fin de période
+    ].copy()
+    
+    # 2. Solde à la date anniversaire (exacte ou première disponible après)
+    solde_anniv = df_solde[
+        (df_solde['id'] == anniv['id']) &
+        (df_solde['date'] >= anniv['date_anniversaire'])
+    ].sort_values('date').head(1)
+    solde_anniversaire = solde_anniv['solde'].values[0] if not solde_anniv.empty else None
+    
+    # 3. Vérification de la suffisance du solde
+    soldes_periode['suffisant'] = soldes_periode['solde'] >= anniv['montant_pack']
+    solde_suffisant = soldes_periode['suffisant'].any()  # True si au moins 1 jour suffisant
+    
+    # 4. Calcul des indicateurs
+    if solde_suffisant:
+        premier_suffisant = soldes_periode.loc[soldes_periode['suffisant']].iloc[0]
+        date_premier_ok = premier_suffisant['date']
+        solde_facture = premier_suffisant['solde']
+        jours_insuffisants = soldes_periode[
+            soldes_periode['date'] < date_premier_ok
+        ].shape[0]  # Nombre de jours insuffisants avant le premier jour OK
+    else:
+        date_premier_ok = None
+        solde_facture = None
+        jours_insuffisants = soldes_periode.shape[0]  # Tous les jours sont insuffisants
+    
+    # 5. Enregistrement des résultats
+    results.append({
+        'id': anniv['id'],
+        'date_anniversaire': anniv['date_anniversaire'],
+        'montant_pack': anniv['montant_pack'],
+        'solde_suffisant': solde_suffisant,
+        'date_premier_suffisant': date_premier_ok,
+        'jours_insuffisants': jours_insuffisants,
+        'solde_anniversaire': solde_anniversaire,
+        'solde_facture': solde_facture,
+        'solde_min_periode': soldes_periode['solde'].min(),  # Solde minimum dans la période
+        'solde_max_periode': soldes_periode['solde'].max()   # Solde maximum dans la période
+    })
 
----
+# ==============================================
+# SECTION 5: POST-TRAITEMENT ET RESULTATS
+# ==============================================
 
-Ce modèle professionnel couvre l’essentiel pour un cahier de test de site vitrine. Personnalisez-le selon vos besoins spécifiques (intégration de tracking, tests A/B, etc.).
+# Conversion en DataFrame
+df_resultat = pd.DataFrame(results)
+
+# Filtrage pour ne garder que les périodes après ouverture
+df_resultat = df_resultat.merge(df_produits[['id', 'date_ouverture']], on='id')
+df_resultat = df_resultat[df_resultat['date_anniversaire'] >= df_resultat['date_ouverture']]
+df_resultat.drop(columns=['date_ouverture'], inplace=True)
+
+# Sélection et affichage des colonnes importantes
+colonnes_finales = [
+    'id', 'date_anniversaire', 'montant_pack', 'solde_suffisant',
+    'date_premier_suffisant', 'jours_insuffisants',
+    'solde_anniversaire', 'solde_facture'
+]
+
+print("="*50)
+print("RÉSULTATS FINAUX")
+print("="*50)
+print(df_resultat[colonnes_finales].to_string(index=False))
+print("\nLégende:")
+print("- solde_suffisant: True si le solde a été suffisant au moins 1 jour")
+print("- date_premier_suffisant: Première date où le solde était suffisant")
+print("- jours_insuffisants: Nombre de jours avec solde insuffisant avant le premier jour suffisant")
+print("- solde_anniversaire: Solde à la date anniversaire")
+print("- solde_facture: Solde au moment du prélèvement effectif")
